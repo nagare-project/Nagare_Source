@@ -1,0 +1,74 @@
+schema: nagare-source/v1
+id: example-http
+name: Example HTTP media
+kind: web
+tier: 1
+enabled: true
+
+origin:
+  ecosystem: community
+  upstream: https://media.example.invalid/nagare-source.json
+  version: "1"
+  license: MIT
+
+search:
+  request:
+    method: GET
+    url: https://media.example.invalid/api/search
+    query:
+      q: "{{title}}"
+    allowed_hosts:
+      - media.example.invalid
+  response: json
+  items: $.items[*]
+  fields:
+    title: $.name
+    subject_key: $.id
+
+episodes:
+  request:
+    method: GET
+    url: https://media.example.invalid/api/subjects/{{subject_key}}/episodes
+    allowed_hosts:
+      - media.example.invalid
+  response: json
+  items: $.episodes[*]
+  fields:
+    number:
+      type: jsonpath
+      expression: $.number
+      transforms:
+        - parse_episode
+    title: $.title
+    play_url: $.hls
+
+resolve:
+  mode: direct
+  transport: hls
+  url: "{{play_url}}"
+  request_headers:
+    Referer: https://media.example.invalid/
+  allowed_hosts:
+    - cdn.example.invalid
+
+defaults:
+  resolution: 1080P
+  subtitle_languages:
+    - zh-Hans
+  channel_tier: 0
+
+limits:
+  concurrency: 2
+  requests_per_minute: 30
+  timeout_ms: 10000
+  max_response_bytes: 2097152
+  max_redirects: 3
+
+selftest:
+  request:
+    titles:
+      - Example Animation
+    episode: 3
+  expect:
+    min_candidates: 1
+    transport: hls

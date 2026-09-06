@@ -1,0 +1,199 @@
+# Source Spec v1
+
+Source Spec v1 是 Nagare 的声明式来源格式。Animeko、Kazumi、Nagare 旧规则和社区规则在进入运行时前都必须转换成该格式。规范文件使用 YAML，发布时规范化为 JSON。
+
+规范标识固定为 `nagare-source/v1`，权威机器定义位于 [`schema/source-v1.schema.json`](../schema/source-v1.schema.json)。本文件描述字段语义；Schema 决定字段是否合法。
+
+## 1. 顶层结构
+
+```yaml
+schema: nagare-source/v1
+id: example-http
+name: Example HTTP media
+kind: web
+tier: 1
+enabled: true
+origin: { ... }
+search: { ... }
+episodes: { ... }
+resolve: { ... }
+defaults: { ... }
+limits: { ... }
+selftest: { ... }
+```
+
+| 字段 | 语义 |
+| --- | --- |
+| `id` | 仓库内永久且唯一的来源 ID，同时必须等于文件名。只允许小写字母、数字和连字符。 |
+| `kind` | `web` 或 `bt`。v1 不接受其他类型。 |
+| `tier` | `0..9`，数值越小优先级越高。它是静态基线，不代表本次请求一定成功。 |
+| `enabled` | 可选，默认为 `true`。停用规则仍可保留以供诊断和迁移。 |
+| `origin` | 上游生态、地址、版本、许可证和可选内容摘要。 |
+| `search` | 用标题查询条目或 BT 发布项。 |
+| `episodes` | WEB 来源的选集阶段；BT 来源不需要。 |
+| `resolve` | 把播放页或发布项转换为传输候选。 |
+| `defaults` | 规则无法提取时采用的分辨率、字幕语言和线路 tier。 |
+| `limits` | 来源级并发、频率、超时、响应大小和跳转限制。 |
+| `selftest` | 定时健康检查使用的稳定标题、集号和最低期望。 |
+
+`origin.ecosystem` 只能是 `community`、`animeko`、`kazumi` 或 `nagare-v1`。自动导入器应把上游原始内容的 SHA-256 写入 `origin.digest`，便于判断 overlay 是否已过期。
+
+## 2. 请求
+
+所有请求必须显式提供 `method` 和绝对 HTTP(S) `url`：
+
+```yaml
+request:
+  method: GET
+  url: https://media.example.invalid/api/search
+  query:
+    q: "{{title}}"
+  headers:
+    Accept: application/json
+  allowed_hosts:
+    - media.example.invalid
+  timeout_ms: 10000
+  max_bytes: 2097152
+  max_redirects: 3
+```
+
+v1 只允许 `GET` 和 `POST`。每个请求都必须给出非空 `allowed_hosts`。GET 不能携带 `body` 或 `form`；POST 可选择文本 `body` 或键值 `form`，但不能同时使用。模板替换发生在 URL、query、header、body 和 form 的字符串值中，然后再进行 URL 编码。
+
+`allowed_hosts` 同时约束初始请求和重定向。`*.example.org` 只匹配其子域，不匹配根域。运行时还必须拒绝回环、私网、链路本地、Unix socket、`file:` 以及 DNS 重绑定到这些地址的结果。静态校验器只能检查字面 IP，运行时必须在每次连接前再次检查解析结果。
+
+规则中禁止提交 `Authorization` 和 `Cookie` 固定值。需要 Cookie 的来源使用 `resolve.cookie_policy: source`，其 jar 只属于当前来源和当前隔离会话。
+
+## 3. 响应和提取器
+
+`response` 可为 `json`、`html`、`xml`、`rss` 或 `text`。`items` 选出列表，`fields` 从每个列表项提取命名字段：
+
+```yaml
+items: $.items[*]
+fields:
+  title: $.name
+  subject_key: $.id
+  number:
+    type: jsonpath
+    expression: $.episode
+    transforms:
+      - trim
+      - parse_episode
+```
+
+字符串提取器是与响应类型对应的简写：JSON 使用 JSONPath，HTML 使用 CSS Selector，XML/RSS 使用 XPath。对象形式可以明确指定：
+
+- `jsonpath`：受限 JSONPath，不执行表达式或脚本。
+- `css`：CSS Selector；`attribute` 缺省时读取规范化文本。
+- `xpath`：XPath 1.0 子集，不开放扩展函数。
+- `regex`：RE2 语法；`group` 默认为 `0`。
+
+所有实现至少支持以下无副作用 transform：
+
+| Transform | 结果 |
+| --- | --- |
+| `trim`、`lowercase`、`uppercase` | 基础字符串规范化。 |
+| `html_decode`、`url_decode` | 解码 HTML entity 或百分号编码。 |
+| `absolute_url` | 相对于产生当前值的响应 URL 解析。 |
+| `parse_episode` | 提取十进制集号；无法确定时返回错误，不得回退为第一集。 |
+| `parse_size`、`parse_datetime` | 规范化为 bytes 或 RFC 3339。 |
+| `normalize_infohash` | 规范化 40 位十六进制或 32 位 base32 infohash。 |
+| `regex`、`replace`、`prepend`、`append`、`default` | 带参数的受控字符串转换。 |
+
+正则统一采用 RE2，禁止回溯断言和反向引用，保证不同语言运行时结果和资源上限一致。
+
+## 4. 阶段与变量
+
+### 4.1 Search
+
+WEB `search.fields` 至少应产生 `title` 和稳定的 `subject_key`。BT 搜索直接产生候选所需字段，通常包括 `title`、`magnet` 或 `torrent_url`、`episode`、`info_hash`、`published_at`、`size` 和 `seeders`。
+
+Search 可使用请求变量：
+
+- `title`：当前尝试的标题别名。
+- `keyword`：`title` 的兼容别名，供 Kazumi importer 映射。
+- `episode` / `episode_number`：请求中的明确集号。
+- `source`：来源 ID。
+
+运行时应依次尝试标题别名、去重结果，并受来源频率限制约束。
+
+### 4.2 Episodes
+
+WEB 来源必须有 `episodes`。单线路页面直接使用 `items + fields`；多线路页面使用 `lines`：
+
+```yaml
+episodes:
+  request:
+    method: GET
+    url: https://example.invalid/show/{{subject_key}}
+  response: html
+  lines:
+    items: .playlist
+    fields:
+      channel: .name
+      line_key:
+        type: css
+        expression: a
+        attribute: data-line
+    episodes:
+      items: a.episode
+      fields:
+        number:
+          type: regex
+          expression: "第([0-9]+)集"
+          group: 1
+          transforms: [parse_episode]
+        play_url:
+          type: css
+          expression: :scope
+          attribute: href
+          transforms: [absolute_url]
+```
+
+Episodes 请求可使用 search 的全部输出字段；多线路的剧集提取还可引用线路字段。
+
+### 4.3 Resolve
+
+`mode: direct` 表示 URL 已在字段中，`mode: browser_sniff` 表示先访问播放页，再从隔离浏览器的网络请求中选择媒体地址。
+
+```yaml
+resolve:
+  mode: browser_sniff
+  transport: hls
+  url: "{{play_url}}"
+  match:
+    include:
+      - "\\.m3u8(?:\\?|$)"
+    exclude:
+      - "/advertising/"
+  request_headers:
+    Referer: https://example.invalid/
+  cookie_policy: source
+  allowed_hosts:
+    - example.invalid
+    - "*.cdn.example.invalid"
+  timeout_ms: 15000
+```
+
+`browser_sniff` 必须给出 `match.include` 和 `allowed_hosts`。匹配第一个候选并不代表成功：运行时仍要确认传输类型、允许域名、集号依据，并在返回前做轻量可读性验证。
+
+传输映射为：
+
+- `hls` → Candidate `transport.type: hls`。
+- `http` → Candidate `transport.type: http`。
+- `magnet` / `torrent_file` → Candidate `transport.type: torrent`。
+
+## 5. 匹配要求
+
+候选必须按以下优先顺序建立依据：精确剧集 ID、精确条目 ID、标题别名与集号、发布日期辅助校验。每个 Candidate 都必须返回 `matchConfidence` 和 `match.basis`。发布日期只能辅助，不能单独证明标题和集号。
+
+若集号缺失、冲突或无法解析，来源应返回 `episode_not_found` 或 `episode_ambiguous`，不得猜测第一集。
+
+## 6. 安全与持久化
+
+- 规则不执行 JavaScript、Shell 或宿主语言代码。
+- 临时媒体 URL、URL query、Cookie 和授权头不得写回来源、索引、普通日志或 fixture。
+- 日志可以保留 scheme、host 和脱敏后的 path；query 默认整体替换为 `[REDACTED]`。
+- HLS/HTTP Candidate 可携带 `expiresAt`，过期后必须重新解析。
+- 私有种子的 tracker 策略必须在读取 torrent `private` 标记后决定。
+
+完整示例见 [`sources/web/example-http.yaml`](../sources/web/example-http.yaml) 和 [`sources/bt/example-rss.yaml`](../sources/bt/example-rss.yaml)。

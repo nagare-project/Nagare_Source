@@ -1,0 +1,28 @@
+{
+  "schema": "nagare-candidate/v1",
+  "id": "example-rss:0123456789abcdef0123456789abcdef01234567",
+  "sourceId": "example-rss",
+  "tier": 3,
+  "matchConfidence": 0.95,
+  "match": {
+    "basis": ["title_episode"],
+    "subjectTitle": "葬送的芙莉莲",
+    "episodeNumber": 3,
+    "evidence": "normalized title alias and release episode token matched"
+  },
+  "transport": {
+    "type": "torrent",
+    "magnet": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567",
+    "infoHash": "0123456789abcdef0123456789abcdef01234567",
+    "fileIndex": 0
+  },
+  "metadata": {
+    "resolution": "1080P",
+    "subtitleLanguages": ["zh-Hans"],
+    "fansub": "Example Fansub",
+    "sizeBytes": 1073741824,
+    "seeders": 12,
+    "publishedAt": "2023-09-29T12:00:00Z",
+    "episode": 3
+  }
+}

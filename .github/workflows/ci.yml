@@ -1,0 +1,28 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test ./...
+      - run: go run ./cmd/nagare-source validate
+      - name: Verify reproducible repository output
+        env:
+          SOURCE_DATE_EPOCH: "1767323045"
+        run: |
+          go run ./cmd/nagare-source build --out /tmp/dist-a --version ci
+          go run ./cmd/nagare-source build --out /tmp/dist-b --version ci
+          diff -ru /tmp/dist-a /tmp/dist-b
