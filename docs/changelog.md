@@ -31,6 +31,8 @@ Source Spec v1 只允许声明式请求、提取和转换，不允许来源携�
 
 仓库内加入了 WEB 与 BT 示例规则，以及请求、Candidate 和 NDJSON 流 fixture。示例全部使用 `example.invalid`，用于离线验证协议，不伪装成可以播放的生产来源。
 
+API 选集规则可以在 `episodes.variables` 提取整份响应共享字段，并通过受控 `template` extractor 结合 `line_index`、`line_number`、`episode_index` 与 `episode_number` 构造播放页。Schema 与静态模板检查共用同一组变量；回归测试确保已声明变量不会被 lint 误判为未知字段。
+
 ### Plugin API v1 采用 HTTP/JSON 与 NDJSON
 
 插件接口不绑定 Go、Kotlin、Dart 或具体播放器。普通端点使用 HTTP/JSON，`POST /v1/candidates` 使用 NDJSON 流式返回三个事件：

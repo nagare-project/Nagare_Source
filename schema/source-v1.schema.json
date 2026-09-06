@@ -162,7 +162,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "type": { "enum": ["jsonpath", "css", "xpath", "regex", "field"] },
+            "type": { "enum": ["jsonpath", "css", "xpath", "regex", "field", "template"] },
             "expression": { "type": "string", "minLength": 1 },
             "attribute": { "type": "string", "minLength": 1 },
             "group": { "type": "integer", "minimum": 0 },
@@ -258,6 +258,7 @@
         "base_url": { "type": "string", "pattern": "^https?://" },
         "items": { "$ref": "#/$defs/extractor" },
         "fields": { "$ref": "#/$defs/fields" },
+        "variables": { "$ref": "#/$defs/fields" },
         "lines": { "$ref": "#/$defs/lineCollection" }
       },
       "oneOf": [

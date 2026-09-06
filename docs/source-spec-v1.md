@@ -91,6 +91,7 @@ fields:
 - `xpath`：XPath 1.0 子集，不开放扩展函数。
 - `regex`：RE2 语法；`group` 默认为 `0`。
 - `field`：引用同一条记录中已经提取的字段，用于继续执行 transform。
+- `template`：用已提取字段和受控索引变量构造字符串；用于 API 规则生成最终播放页，不执行表达式。
 
 `any` 按顺序选择第一个非空提取结果，用于上游同一值可能出现在多个位置的情况：
 
@@ -169,6 +170,21 @@ episodes:
 ```
 
 Episodes 请求可使用 search 的全部输出字段；多线路的剧集提取还可引用线路字段。
+
+API 选集可以在 `episodes.variables` 中声明相对于整份响应提取的共享字段。嵌套线路/剧集还提供从零开始的 `line_index`、`episode_index`，以及从一开始的 `line_number`、`episode_number`。这些值可以由 `template` extractor 构造播放页：
+
+```yaml
+episodes:
+  variables:
+    slug: {type: jsonpath, expression: $.data.slug, scope: document}
+  lines:
+    # ...
+    episodes:
+      fields:
+        play_url:
+          type: template
+          expression: https://example.invalid/{{slug}}?line={{line_index}}&episode={{episode_index}}
+```
 
 ### 4.3 Resolve
 

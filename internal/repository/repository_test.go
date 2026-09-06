@@ -136,6 +136,35 @@ func TestSourceSchemaAcceptsLinesAndRejectsEpisodesForBT(t *testing.T) {
 	}
 }
 
+func TestSourceSchemaAcceptsEpisodeVariablesAndTemplateExtractor(t *testing.T) {
+	root := repositoryRoot(t)
+	validator, err := NewValidator(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "sources", "web", "example-http.yaml")
+	value, err := LoadDocument(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := cloneObject(t, value)
+	episodes := source["episodes"].(map[string]any)
+	episodes["variables"] = map[string]any{
+		"slug": map[string]any{"type": "jsonpath", "expression": "$.slug", "scope": "document"},
+	}
+	fields := episodes["fields"].(map[string]any)
+	fields["play_url"] = map[string]any{
+		"type":       "template",
+		"expression": "https://media.example.invalid/{{slug}}?episode={{episode_index}}",
+	}
+	if err := validator.Validate(SourceSchemaName, source); err != nil {
+		t.Fatalf("episode variables and template extractor should pass: %v", err)
+	}
+	if err := lintSource(root, path, source); err != nil {
+		t.Fatalf("documented template variables should pass lint: %v", err)
+	}
+}
+
 func TestLintRejectsPrivateNetworkAndUnknownVariables(t *testing.T) {
 	if _, err := lintPublicURL("http://127.0.0.1/video.m3u8"); err == nil {
 		t.Fatal("loopback URL unexpectedly passed")

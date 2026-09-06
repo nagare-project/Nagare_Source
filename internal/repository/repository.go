@@ -464,7 +464,8 @@ func lintSource(root, path string, document map[string]any) error {
 
 	variables := map[string]bool{
 		"title": true, "keyword": true, "source": true, "episode": true,
-		"episode_number": true, "line_key": true, "page": true,
+		"episode_number": true, "episode_index": true, "line_key": true,
+		"line_index": true, "line_number": true, "page": true,
 	}
 	collectFieldNames(document, variables)
 	if err := walkDocument(document, "", func(location string, value any) error {
@@ -610,9 +611,11 @@ func collectFieldNames(value any, variables map[string]bool) {
 		}
 		return
 	}
-	if fields, ok := object["fields"].(map[string]any); ok {
-		for name := range fields {
-			variables[name] = true
+	for _, collection := range []string{"fields", "variables"} {
+		if fields, ok := object[collection].(map[string]any); ok {
+			for name := range fields {
+				variables[name] = true
+			}
 		}
 	}
 	for _, child := range object {
