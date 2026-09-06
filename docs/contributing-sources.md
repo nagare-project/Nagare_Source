@@ -21,6 +21,7 @@ go test ./...
 ```sh
 make check
 make test
+make selftest-bt
 ```
 
 ## 校验内容
@@ -32,6 +33,7 @@ make test
 - 模板语法、变量存在性和 RE2 正则编译。
 - HTTP(S) URL、字面私网/回环地址、`allowed_hosts` 和敏感固定 header 检查。
 - Candidate、resolve request 与 NDJSON fixture 校验。
+- BT JSONL 记录与其 BT 来源引用校验。
 - 构建后的仓库 index 自校验。
 
 DNS 解析结果、重定向目标和响应体大小必须由运行时再次检查；静态校验不是网络沙箱的替代品。
@@ -50,9 +52,11 @@ Fixture 只保留证明提取逻辑所需的节点。删除广告、统计脚本
 
 网络自检使用稳定、获准访问的测试标题。验证码或需要交互的人机验证必须报告 `interactive_required`，CI 不绕过。
 
+BT 来源应把脱敏响应放入 `fixtures/responses/`，通过 [`crawl-bt`](bt-crawler.md) 执行离线 selftest。真实网络运行只用于定时健康与发布任务，PR 校验不得依赖第三方站点可用性。
+
 ## Overlay
 
-自动导入结果应优先由 importer 修复。只有无法从上游可靠推导的事实才进入 overlay，例如线路 tier、必须的 Referer、集号正则或浏览器嗅探 allowlist。overlay 必须记录来源 ID、适用的上游版本/摘要和原因；上游摘要变化后需重新审核。
+自动导入结果应优先由 importer 修复。只有无法从上游可靠推导的事实才进入 overlay，例如线路 tier、必须的 Referer、集号正则或浏览器嗅探 allowlist。overlay 格式、摘要锁定和导入命令见 [导入器与 Overlay](importers.md)。
 
 ## 生成发布产物
 
@@ -60,10 +64,11 @@ Fixture 只保留证明提取逻辑所需的节点。删除广告、统计脚本
 
 ```sh
 SOURCE_DATE_EPOCH=1767323045 \
-  go run ./cmd/nagare-source build --version 0.1.0
+  go run ./cmd/nagare-source build --version 0.1.0 \
+  --bt-records fixtures/bt-index/releases.jsonl
 ```
 
-构建会把 YAML 规范化为 `dist/sources/<id>.json`，按 ID 排序生成 `dist/index.json`，并为每份规范写入基于规范化 JSON 的 SHA-256。相同输入、版本和时间戳必须产生逐字节一致的输出。
+构建会把 YAML 规范化为 `dist/sources/<id>.json`，按 ID 排序生成 `dist/index.json`，并把规范化 BT JSONL 生成 `dist/bt-index.sqlite.zst`。每份来源和压缩 BT 索引都在 index 中带 SHA-256。相同输入、版本和时间戳必须产生逐字节一致的输出；BT 输入契约和数据库布局见 [BT Index v1](bt-index-v1.md)。
 
 ## PR 检查表
 

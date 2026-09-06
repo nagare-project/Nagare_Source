@@ -27,12 +27,16 @@ selftest: { ... }
 | `id` | 仓库内永久且唯一的来源 ID，同时必须等于文件名。只允许小写字母、数字和连字符。 |
 | `kind` | `web` 或 `bt`。v1 不接受其他类型。 |
 | `tier` | `0..9`，数值越小优先级越高。它是静态基线，不代表本次请求一定成功。 |
+| `channel_tiers` | 按解析出的线路名覆盖 tier；用于保留 Animeko channel tiers。 |
 | `enabled` | 可选，默认为 `true`。停用规则仍可保留以供诊断和迁移。 |
 | `origin` | 上游生态、地址、版本、许可证和可选内容摘要。 |
 | `search` | 用标题查询条目或 BT 发布项。 |
 | `episodes` | WEB 来源的选集阶段；BT 来源不需要。 |
 | `resolve` | 把播放页或发布项转换为传输候选。 |
 | `defaults` | 规则无法提取时采用的分辨率、字幕语言和线路 tier。 |
+| `matching` | 标题预处理、别名数量以及条目/集号强制匹配策略。 |
+| `ranking` | 上游的次级排序权重和 seeders 能力，不取代来源 tier。 |
+| `cache` | 来源搜索缓存 TTL；`0` 表示禁用。 |
 | `limits` | 来源级并发、频率、超时、响应大小和跳转限制。 |
 | `selftest` | 定时健康检查使用的稳定标题、集号和最低期望。 |
 
@@ -40,7 +44,7 @@ selftest: { ... }
 
 ## 2. 请求
 
-所有请求必须显式提供 `method` 和绝对 HTTP(S) `url`：
+所有请求必须显式提供 `method` 和 HTTP(S) `url`。后续阶段可以用单个模板变量引用前一阶段产生的绝对 URL，例如 `{{subject_url}}`：
 
 ```yaml
 request:
@@ -86,6 +90,19 @@ fields:
 - `css`：CSS Selector；`attribute` 缺省时读取规范化文本。
 - `xpath`：XPath 1.0 子集，不开放扩展函数。
 - `regex`：RE2 语法；`group` 默认为 `0`。
+- `field`：引用同一条记录中已经提取的字段，用于继续执行 transform。
+
+`any` 按顺序选择第一个非空提取结果，用于上游同一值可能出现在多个位置的情况：
+
+```yaml
+magnet:
+  any:
+    - { type: xpath, expression: ./enclosure/@url }
+    - { type: xpath, expression: ./link/text() }
+  transforms: [trim]
+```
+
+若两个独立 selector/JSONPath 返回平行数组，collection 使用 `mode: zipped`，各字段提取器使用 `scope: document`。结果按下标合并，以最短数组长度为准；普通 `items` 模式则相对每个 item 提取字段。
 
 所有实现至少支持以下无副作用 transform：
 
@@ -96,6 +113,8 @@ fields:
 | `absolute_url` | 相对于产生当前值的响应 URL 解析。 |
 | `parse_episode` | 提取十进制集号；无法确定时返回错误，不得回退为第一集。 |
 | `parse_size`、`parse_datetime` | 规范化为 bytes 或 RFC 3339。 |
+| `parse_fansub` | 从规范发布标题中提取字幕组。 |
+| `magnet` | 从 infohash 创建 magnet，可引用标题字段并附加 tracker。 |
 | `normalize_infohash` | 规范化 40 位十六进制或 32 位 base32 infohash。 |
 | `regex`、`replace`、`prepend`、`append`、`default` | 带参数的受控字符串转换。 |
 
@@ -165,6 +184,8 @@ resolve:
       - "\\.m3u8(?:\\?|$)"
     exclude:
       - "/advertising/"
+    nested_include:
+      - "/(?:player|embed)/"
   request_headers:
     Referer: https://example.invalid/
   cookie_policy: source
@@ -180,7 +201,11 @@ resolve:
 
 - `hls` → Candidate `transport.type: hls`。
 - `http` → Candidate `transport.type: http`。
-- `magnet` / `torrent_file` → Candidate `transport.type: torrent`。
+- `auto` → 根据嗅探结果在 HLS 与普通 HTTP 间判断。
+- `torrent` → 根据字段值在 magnet 与 HTTP `.torrent` 间判断。
+- `magnet` / `torrent_file` → Candidate `transport.type: torrent` 的明确变体。
+
+`cookies` 只允许非敏感的固定来源偏好 cookie，每项为一个 `name=value`。会话、认证或验证码 cookie 必须由隔离浏览器在当前解析会话中产生，不能进入规则或日志。
 
 ## 5. 匹配要求
 
@@ -197,3 +222,5 @@ resolve:
 - 私有种子的 tracker 策略必须在读取 torrent `private` 标记后决定。
 
 完整示例见 [`sources/web/example-http.yaml`](../sources/web/example-http.yaml) 和 [`sources/bt/example-rss.yaml`](../sources/bt/example-rss.yaml)。
+
+仓库提供的 M1 BT 执行器、离线自检方式和当前 XPath/JSONPath 子集见 [BT Source Crawler](bt-crawler.md)。

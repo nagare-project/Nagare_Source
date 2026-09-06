@@ -4,7 +4,7 @@ Nagare Source 是面向番剧资源发现与播放解析的统一来源协议和
 
 仓库把 Animeko、Kazumi、Nagare 现有规则以及社区新增规则规范化为同一种来源描述。客户端只需要实现一次 Nagare Source 协议，即可接收 HTTP/HLS、磁力和 `.torrent` 候选，并按来源质量、实时健康度与用户偏好完成选择。
 
-当前已完成 M0 的可执行基线：四份 JSON Schema、协议文档、WEB/BT 示例、fixture 校验、静态安全检查和可复现的仓库索引构建。完整路线见 [docs/plan.md](docs/plan.md)。
+当前已完成 M0 的可执行基线，并已落地 M1 的 Animeko/Nagare v1 导入链路与确定性 BT SQLite 发布产物。完整路线见 [docs/plan.md](docs/plan.md)。
 
 ## 设计原则
 
@@ -34,19 +34,47 @@ docs/         协议与实施文档
 ```sh
 go run ./cmd/nagare-source validate
 go test ./...
-go run ./cmd/nagare-source build --version dev
+go run ./cmd/nagare-source crawl-bt \
+  --source sources/bt/example-rss.yaml \
+  --response-file fixtures/responses/example-rss.xml \
+  --selftest \
+  --out /tmp/nagare-bt-records.jsonl
+go run ./cmd/nagare-source build \
+  --version dev \
+  --bt-records /tmp/nagare-bt-records.jsonl
 ```
 
-`build` 生成被 Git 忽略的 `dist/index.json` 和规范化 JSON 来源。默认时间戳取 `SOURCE_DATE_EPOCH`，未设置时取当前 Git commit 时间，因此固定输入可以得到逐字节一致的发布产物。
+`build` 生成被 Git 忽略的 `dist/index.json`、规范化 JSON 来源和 `dist/bt-index.sqlite.zst`。默认时间戳取 `SOURCE_DATE_EPOCH`，未设置时取当前 Git commit 时间，因此固定输入可以得到逐字节一致的发布产物。省略 `--bt-records` 时仍生成合法的空 BT 索引。
+
+M1 导入命令支持单文件或递归目录：
+
+```sh
+go run ./cmd/nagare-source import animeko \
+  --input upstream/ani-subs \
+  --upstream 'https://github.com/example/rules/blob/main/{path}' \
+  --license AGPL-3.0-only \
+  --out imported
+
+go run ./cmd/nagare-source import nagare-v1 \
+  --input upstream/legacy-rules \
+  --upstream 'https://github.com/example/rules/blob/main/{path}' \
+  --license MIT \
+  --out imported
+```
+
+导入器会输出 JSONL 结构化诊断；存在任何错误时不写出部分结果。人工修补通过带上游摘要锁定的 overlay 应用。
 
 ## 文档
 
 - [Source Spec v1](docs/source-spec-v1.md)
 - [Plugin API v1](docs/plugin-api-v1.md)
 - [贡献来源](docs/contributing-sources.md)
+- [导入器与 Overlay](docs/importers.md)
+- [BT Index v1](docs/bt-index-v1.md)
+- [BT Source Crawler](docs/bt-crawler.md)
 - [开发日志](docs/changelog.md)
 - [完整实施计划](docs/plan.md)
 
 ## 当前范围
 
-M0 已实现并可由 CI 验收。M1 的确定性 index 生成基础也已完成；Animeko/Nagare v1 导入器、BT SQLite 抓取、网络 resolver、浏览器嗅探和 Nagare 客户端接入仍按 M1–M4 继续实现。仓库中的 `example.invalid` 规则仅用于离线协议示例，不是可播放的生产来源。
+M0 已实现并可由 CI 验收。M1 已完成 Animeko RSS/web-selector v2、Nagare schema 1 导入器、受网络边界约束的 BT Source Spec 抓取器、离线自检、确定性 repository index 与 `bt-index.sqlite.zst` 生成；生产来源清单、定时网络运行和逐项许可证核对仍待接入发布流程。Kazumi 转换器、WEB resolver、浏览器嗅探和 Nagare 客户端接入继续按 M2–M4 实现。仓库中的 `example.invalid` 规则仅用于离线协议示例，不是可播放的生产来源。

@@ -4,7 +4,7 @@
   "title": "Nagare source repository index v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "version", "generatedAt", "sourceSchemaVersions", "sources"],
+  "required": ["schema", "version", "generatedAt", "sourceSchemaVersions", "artifacts", "sources"],
   "properties": {
     "schema": { "const": "nagare-repository-index/v1" },
     "version": { "type": "string", "minLength": 1 },
@@ -12,6 +12,25 @@
     "sourceSchemaVersions": {
       "type": "array",
       "const": [1]
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["btIndex"],
+      "properties": {
+        "btIndex": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "format", "schemaVersion", "records", "digest"],
+          "properties": {
+            "path": { "const": "bt-index.sqlite.zst" },
+            "format": { "const": "sqlite3+zstd" },
+            "schemaVersion": { "const": 1 },
+            "records": { "type": "integer", "minimum": 0 },
+            "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+          }
+        }
+      }
     },
     "sources": {
       "type": "array",

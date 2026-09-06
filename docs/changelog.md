@@ -64,10 +64,22 @@ Animeko 转换核心能够读取 subscription 根对象，把 `rss` v1 转为 BT
 
 CLI 已增加 `import animeko` 和 `import nagare-v1`，统一执行转换、overlay、Source Spec 校验、JSONL 诊断和原子写入；只要出现错误诊断，就不写出任何来源。契约测试覆盖 Animeko RSS、Web Selector、未知 factory、Nagare v1 成功转换和不受支持的 transform，并把成功结果再次送入 Source Spec v1 Schema 校验。
 
-这还不等于 M1 完成：两类导入器仍需要真实上游 fixture 和端到端验收，Kazumi 转换器也尚未实现。在真实来源自检和版权/许可证核对完成前，不会把示例规则当成社区生产源发布。
+导入器 fixture 现已覆盖真实上游结构，并完成单文件、subscription 与递归目录端到端验收。本地兼容性冒烟测试成功转换 Animeko 官方订阅仓库的 20 条规则，以及 Nagare 旧测试集的 6 条 schema 1 规则；导入结果均再次通过统一 Schema 和安全检查。真实来源网络自检及许可证逐项核对仍待完成，Kazumi 转换器属于 M2。
+
+### BT SQLite 发布产物已经可复现
+
+新增 `nagare-bt-record/v1` JSONL 输入契约与纯 Go 构建器。构建器会验证来源引用、infohash、magnet 一致性、发布时间、大小、字幕和清晰度，拒绝未知字段与重复 `sourceId + infoHash`，再按稳定顺序写入 SQLite。数据库包含规范化标题/集号查询索引和版本元数据，随后以固定参数压缩为 `bt-index.sqlite.zst`。
+
+仓库 `index.json` 现在记录 BT 产物的格式、schema 版本、记录数和压缩文件 SHA-256；即使没有抓取记录也会发布可打开的空索引。测试会对相同输入独立构建两次并逐字节比较，同时解压数据库执行真实 SQL 查询。CI 的复现检查已经带入 BT fixture，避免只验证来源 JSON 而漏掉二进制产物。
+
+### Source Spec BT 抓取与离线自检已接通
+
+新增 `crawl-bt` 命令，直接执行统一规则的 BT Search 阶段。RSS/XML 路径支持受限 XPath、属性与 namespace；JSON 路径支持属性、数组和通配选择；两者共用 `field`、`any`、required/optional 语义与受控 transform。输出在写盘前再次通过 BT record 规范化、infohash/magnet 一致性检查、稳定去重和排序。
+
+网络读取执行 `allowed_hosts`、重定向次数、超时、响应体大小和 DNS 公网地址检查，不使用环境代理；固定认证头、Cookie、URL credentials 和私网目标会被拒绝。错误日志只保留脱敏后的请求 URL。离线 fixture 使用同一解析链，只替换网络响应，因此 CI 可以稳定执行来源 selftest，再把其 JSONL 结果送进两次独立 SQLite 构建比较。
 
 ### 仓库与计划
 
 建立了公开仓库 `nagare-project/Nagare_Source`，默认分支为 `main`，采用 MIT License。完整路线记录在 `docs/plan.md`，包含来源导入、BT 索引、resolver、浏览器嗅探、Nagare 接入、健康检查和社区发布流程。
 
-下一阶段需要用真实 fixture 验收 Animeko/Nagare v1 导入器，然后完成 Kazumi 导入器、真实 WEB/BT 来源、运行时 resolver、BT SQLite 发布产物和 Nagare 客户端接入。当前版本完成的是统一接头和可验收的仓库基线，还没有交付“点击某一集即可播放”的完整链路。
+下一阶段需要把 BT SQLite 接入定期抓取与发布并完成来源网络自检，再进入 Kazumi 导入、运行时 resolver、浏览器嗅探和 Nagare 客户端接入。当前版本完成的是统一接头和可验收的仓库/导入基线，还没有交付“点击某一集即可播放”的完整链路。

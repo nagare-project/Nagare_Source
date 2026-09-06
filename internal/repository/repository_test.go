@@ -15,7 +15,7 @@ func TestRepositoryFixturesValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 {
+	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 {
 		t.Fatalf("unexpected validation summary: %+v", summary)
 	}
 }
@@ -25,12 +25,13 @@ func TestBuildIsDeterministicAndDigestMatches(t *testing.T) {
 	first := filepath.Join(t.TempDir(), "first")
 	second := filepath.Join(t.TempDir(), "second")
 	generatedAt := "2026-01-02T03:04:05Z"
+	recordsPath := filepath.Join(root, "fixtures", "bt-index", "releases.jsonl")
 
-	index, err := Build(root, first, "0.1.0-test", generatedAt)
+	index, err := BuildWithBTRecords(root, first, "0.1.0-test", generatedAt, recordsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Build(root, second, "0.1.0-test", generatedAt); err != nil {
+	if _, err := BuildWithBTRecords(root, second, "0.1.0-test", generatedAt, recordsPath); err != nil {
 		t.Fatal(err)
 	}
 	firstIndex, err := os.ReadFile(filepath.Join(first, "index.json"))
@@ -43,6 +44,20 @@ func TestBuildIsDeterministicAndDigestMatches(t *testing.T) {
 	}
 	if !bytes.Equal(firstIndex, secondIndex) {
 		t.Fatal("identical inputs produced different indexes")
+	}
+	firstBTIndex, err := os.ReadFile(filepath.Join(first, "bt-index.sqlite.zst"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondBTIndex, err := os.ReadFile(filepath.Join(second, "bt-index.sqlite.zst"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(firstBTIndex, secondBTIndex) {
+		t.Fatal("identical inputs produced different BT indexes")
+	}
+	if index.Artifacts.BTIndex.Records != 1 || index.Artifacts.BTIndex.Digest != sha256Digest(firstBTIndex) {
+		t.Fatalf("unexpected BT artifact metadata: %+v", index.Artifacts.BTIndex)
 	}
 	if len(index.Sources) != 2 || index.Sources[0].ID != "example-http" || index.Sources[1].ID != "example-rss" {
 		t.Fatalf("sources are not sorted by id: %+v", index.Sources)
@@ -147,6 +162,45 @@ func TestBuildRejectsRepositoryRootAsOutput(t *testing.T) {
 	root := repositoryRoot(t)
 	if _, err := Build(root, root, "test", "2026-01-02T03:04:05Z"); err == nil {
 		t.Fatal("repository root unexpectedly accepted as generated output")
+	}
+}
+
+func TestBuildEmitsEmptyBTIndex(t *testing.T) {
+	root := repositoryRoot(t)
+	output := filepath.Join(t.TempDir(), "dist")
+	index, err := Build(root, output, "test", "2026-01-02T03:04:05Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if index.Artifacts.BTIndex.Records != 0 {
+		t.Fatalf("empty build reported %d BT records", index.Artifacts.BTIndex.Records)
+	}
+	if info, err := os.Stat(filepath.Join(output, index.Artifacts.BTIndex.Path)); err != nil || info.Size() == 0 {
+		t.Fatalf("empty BT index was not emitted: info=%v err=%v", info, err)
+	}
+}
+
+func TestBuildRejectsNonBTRecordWithoutReplacingOutput(t *testing.T) {
+	root := repositoryRoot(t)
+	directory := t.TempDir()
+	recordsPath := filepath.Join(directory, "records.jsonl")
+	record := `{"schema":"nagare-bt-record/v1","sourceId":"example-http","infoHash":"0123456789abcdef0123456789abcdef01234567","magnet":"magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567","title":"Example"}`
+	if err := os.WriteFile(recordsPath, []byte(record+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(directory, "dist")
+	if err := os.MkdirAll(output, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(output, "keep.txt")
+	if err := os.WriteFile(sentinel, []byte("existing release\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BuildWithBTRecords(root, output, "test", "2026-01-02T03:04:05Z", recordsPath); err == nil || !strings.Contains(err.Error(), "non-BT") {
+		t.Fatalf("non-BT source returned unexpected error: %v", err)
+	}
+	if data, err := os.ReadFile(sentinel); err != nil || string(data) != "existing release\n" {
+		t.Fatalf("failed build replaced existing output: data=%q err=%v", data, err)
 	}
 }
 

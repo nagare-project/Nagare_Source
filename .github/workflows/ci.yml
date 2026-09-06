@@ -19,10 +19,17 @@ jobs:
           cache: true
       - run: go test ./...
       - run: go run ./cmd/nagare-source validate
+      - name: Verify offline BT source self-test
+        run: >-
+          go run ./cmd/nagare-source crawl-bt
+          --source sources/bt/example-rss.yaml
+          --response-file fixtures/responses/example-rss.xml
+          --selftest
+          --out /tmp/bt-records.jsonl
       - name: Verify reproducible repository output
         env:
           SOURCE_DATE_EPOCH: "1767323045"
         run: |
-          go run ./cmd/nagare-source build --out /tmp/dist-a --version ci
-          go run ./cmd/nagare-source build --out /tmp/dist-b --version ci
+          go run ./cmd/nagare-source build --out /tmp/dist-a --version ci --bt-records /tmp/bt-records.jsonl
+          go run ./cmd/nagare-source build --out /tmp/dist-b --version ci --bt-records /tmp/bt-records.jsonl
           diff -ru /tmp/dist-a /tmp/dist-b

@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nagare-project/Nagare_Source/internal/btindex"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
 )
@@ -64,6 +65,7 @@ type ValidationSummary struct {
 	Sources    int
 	Requests   int
 	Candidates int
+	BTRecords  int
 }
 
 type SourceDocument struct {
@@ -76,7 +78,20 @@ type Index struct {
 	Version              string       `json:"version"`
 	GeneratedAt          string       `json:"generatedAt"`
 	SourceSchemaVersions []int        `json:"sourceSchemaVersions"`
+	Artifacts            Artifacts    `json:"artifacts"`
 	Sources              []IndexEntry `json:"sources"`
+}
+
+type Artifacts struct {
+	BTIndex BTIndexArtifact `json:"btIndex"`
+}
+
+type BTIndexArtifact struct {
+	Path          string `json:"path"`
+	Format        string `json:"format"`
+	SchemaVersion int    `json:"schemaVersion"`
+	Records       int    `json:"records"`
+	Digest        string `json:"digest"`
 }
 
 type IndexEntry struct {
@@ -222,6 +237,20 @@ func ValidateRepository(root string) (ValidationSummary, error) {
 	if err := validateNDJSONFixtures(root, validator); err != nil {
 		return summary, err
 	}
+	btPaths, err := documentPaths(filepath.Join(root, "fixtures", "bt-index"), ".jsonl")
+	if err != nil {
+		return summary, err
+	}
+	for _, path := range btPaths {
+		records, err := btindex.LoadJSONL(path)
+		if err != nil {
+			return summary, err
+		}
+		if err := validateBTRecordSources(sources, records); err != nil {
+			return summary, fmt.Errorf("%s: %w", relative(root, path), err)
+		}
+		summary.BTRecords += len(records)
+	}
 	return summary, nil
 }
 
@@ -258,6 +287,20 @@ func LoadSources(root string, validator *Validator) ([]SourceDocument, error) {
 }
 
 func Build(root, outputDir, version, generatedAt string) (Index, error) {
+	return build(root, outputDir, version, generatedAt, nil)
+}
+
+// BuildWithBTRecords includes normalized crawler output in the release. The
+// entire JSONL input is validated before the output directory is touched.
+func BuildWithBTRecords(root, outputDir, version, generatedAt, recordsPath string) (Index, error) {
+	records, err := btindex.LoadJSONL(recordsPath)
+	if err != nil {
+		return Index{}, err
+	}
+	return build(root, outputDir, version, generatedAt, records)
+}
+
+func build(root, outputDir, version, generatedAt string, btRecords []btindex.Record) (Index, error) {
 	cleanRoot := filepath.Clean(root)
 	cleanOutput := filepath.Clean(outputDir)
 	volumeRoot := filepath.VolumeName(cleanOutput) + string(os.PathSeparator)
@@ -287,6 +330,9 @@ func Build(root, outputDir, version, generatedAt string) (Index, error) {
 	if err != nil {
 		return Index{}, fmt.Errorf("generated-at must be RFC 3339: %w", err)
 	}
+	if err := validateBTRecordSources(sources, btRecords); err != nil {
+		return Index{}, err
+	}
 
 	parent := filepath.Dir(outputDir)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
@@ -307,6 +353,17 @@ func Build(root, outputDir, version, generatedAt string) (Index, error) {
 		GeneratedAt:          when.UTC().Format(time.RFC3339),
 		SourceSchemaVersions: []int{1},
 		Sources:              make([]IndexEntry, 0, len(sources)),
+	}
+	artifact, err := btindex.Build(btRecords, when, filepath.Join(temporary, "bt-index.sqlite.zst"))
+	if err != nil {
+		return Index{}, fmt.Errorf("build BT index: %w", err)
+	}
+	index.Artifacts.BTIndex = BTIndexArtifact{
+		Path:          "bt-index.sqlite.zst",
+		Format:        "sqlite3+zstd",
+		SchemaVersion: btindex.SchemaVersion,
+		Records:       artifact.Records,
+		Digest:        artifact.Digest,
 	}
 	for _, source := range sources {
 		data, err := canonicalJSON(source.Document)
@@ -361,6 +418,21 @@ func Build(root, outputDir, version, generatedAt string) (Index, error) {
 		return Index{}, fmt.Errorf("publish output directory: %w", err)
 	}
 	return index, nil
+}
+
+func validateBTRecordSources(sources []SourceDocument, records []btindex.Record) error {
+	btSources := make(map[string]bool)
+	for _, source := range sources {
+		if stringValue(source.Document["kind"]) == "bt" {
+			btSources[stringValue(source.Document["id"])] = true
+		}
+	}
+	for _, record := range records {
+		if !btSources[record.SourceID] {
+			return fmt.Errorf("BT record references missing or non-BT source %q", record.SourceID)
+		}
+	}
+	return nil
 }
 
 func DefaultGeneratedAt(root string) string {

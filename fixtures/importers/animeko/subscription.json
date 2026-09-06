@@ -1,0 +1,76 @@
+{
+  "mediaSources": [
+    {
+      "factoryId": "rss",
+      "version": 1,
+      "arguments": {
+        "name": "Fixture RSS",
+        "description": "Synthetic Animeko RSS fixture",
+        "iconUrl": "https://rss.example.invalid/favicon.ico",
+        "searchConfig": {
+          "searchUrl": "https://rss.example.invalid/feed.xml?q={keyword}&page={page}",
+          "filterByEpisodeSort": true,
+          "filterBySubjectName": true
+        },
+        "tier": 3
+      }
+    },
+    {
+      "factoryId": "web-selector",
+      "version": 2,
+      "arguments": {
+        "name": "Fixture Selector",
+        "description": "Synthetic Animeko web-selector v2 fixture",
+        "iconUrl": "https://video.example.invalid/favicon.ico",
+        "tier": 1,
+        "channelTiers": {
+          "主线": 0,
+          "备用": 2
+        },
+        "searchConfig": {
+          "searchUrl": "https://video.example.invalid/search?wd={keyword}",
+          "searchUseOnlyFirstWord": true,
+          "searchRemoveSpecial": true,
+          "searchUseSubjectNamesCount": 2,
+          "rawBaseUrl": "https://video.example.invalid/",
+          "requestInterval": 3000,
+          "searchCacheTtl": 7200000,
+          "subjectFormatId": "indexed",
+          "selectorSubjectFormatIndexed": {
+            "selectNames": ".result .title",
+            "selectLinks": ".result > a",
+            "preferShorterName": true
+          },
+          "channelFormatId": "index-grouped",
+          "selectorChannelFormatFlattened": {
+            "selectChannelNames": ".tabs > a",
+            "matchChannelName": "^(?<ch>.+?)([0-9]+)?$",
+            "selectEpisodeLists": ".playlists > ul",
+            "selectEpisodesFromList": "li > a",
+            "selectEpisodeLinksFromList": "",
+            "matchEpisodeSortFromName": "第\\s*(?<ep>[0-9.]+)\\s*[话集]"
+          },
+          "defaultResolution": "1080P",
+          "defaultSubtitleLanguage": "CHS",
+          "onlySupportsPlayers": [],
+          "filterByEpisodeSort": true,
+          "filterBySubjectName": true,
+          "selectMedia": {
+            "distinguishSubjectName": true,
+            "distinguishChannelName": true
+          },
+          "matchVideo": {
+            "enableNestedUrl": true,
+            "matchNestedUrl": "^https?://.+/(?:player|embed).+$",
+            "matchVideoUrl": "^https?://(?!.*advertising).+\\.(?:m3u8|mp4)(?:\\?.*)?$",
+            "cookies": "quality=1080",
+            "addHeadersToVideo": {
+              "referer": "https://video.example.invalid/",
+              "userAgent": "Nagare Source Fixture/1.0"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
