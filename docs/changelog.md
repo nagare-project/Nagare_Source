@@ -82,8 +82,16 @@ CLI 已增加 `import animeko` 和 `import nagare-v1`，统一执行转换、ove
 
 真实只读冒烟测试也验证了安全边界和兼容性：临时导入的 AnimeGarden 入口首先因跳转目标不在 `allowed_hosts` 而被阻止；把实际 API 主机显式加入临时 allowlist 后，同一规则成功规范化 47 条记录，并稳定折叠一条重复 infohash。测试规则、响应和结果只保存在临时目录，未在许可证尚未核对时写入仓库。
 
+### Kazumi XPath/API 导入链路完成
+
+新增 `import kazumi`，统一处理单文件与递归规则目录，并跳过官方仓库中仅用于展示索引的 `index.json`。XPath 路径覆盖 GET/表单 POST、作品搜索、相对链接、多线路和集号；API 路径覆盖 GET/POST、query、headers、JSON/form body、受限 JSONPath、响应级变量、嵌套线路，以及 `@source`、`@episodeUrl` 和线路/剧集索引组成的最终播放页模板。转换结果与 Animeko 一样进入 `browser_sniff`，没有新增 Kazumi 专用运行时分支。
+
+安全策略不会复制验证码脚本或长期凭据：弃用规则、需要交互验证的规则和携带固定认证/API key 的规则均可审计地输出为禁用状态，相关字段产生结构化诊断。浏览器 CDN 域名无法由静态规则证明时继续要求 overlay；`delimited` API 章节格式则明确报错，不静默丢失语义。
+
+本地只读兼容性验收对官方 KazumiRules 当前 84 条规则进行了两次离线转换，84 条均通过 Source Spec 与安全 lint，且两次来源 YAML 和诊断逐字节一致。12 条规则保持启用，其他规则因上游弃用、验证码交互或固定凭据而禁用。合成测试另外固定了 XPath/API 转换、POST JSON、变量模板、凭据删除、同站点 Animeko/Kazumi 身份收敛和 CLI 目录导入行为；没有访问第三方资源站点或提交其规则正文。
+
 ### 仓库与计划
 
 建立了公开仓库 `nagare-project/Nagare_Source`，默认分支为 `main`，采用 MIT License。完整路线记录在 `docs/plan.md`，包含来源导入、BT 索引、resolver、浏览器嗅探、Nagare 接入、健康检查和社区发布流程。
 
-下一阶段需要把 BT SQLite 接入定期抓取与发布并完成来源网络自检，再进入 Kazumi 导入、运行时 resolver、浏览器嗅探和 Nagare 客户端接入。当前版本完成的是统一接头和可验收的仓库/导入基线，还没有交付“点击某一集即可播放”的完整链路。
+下一阶段需要把 BT SQLite 接入定期抓取与发布并完成来源网络自检，再进入运行时 resolver、浏览器嗅探和 Nagare 客户端接入。当前版本完成的是统一接头和可验收的 M0–M2 仓库/导入基线，还没有交付“点击某一集即可播放”的完整链路。

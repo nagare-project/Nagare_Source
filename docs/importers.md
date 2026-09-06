@@ -37,6 +37,32 @@ go run ./cmd/nagare-source import animeko \
 
 `onlySupportsPlayers` 是 Animeko 播放器实现 ID，不具备跨客户端语义；导入器明确输出 `player_restriction_dropped`，由传输验证替代。
 
+## Kazumi
+
+```sh
+go run ./cmd/nagare-source import kazumi \
+  --input upstream/KazumiRules \
+  --upstream 'https://github.com/Predidit/KazumiRules/blob/main/{path}' \
+  --license MIT \
+  --out imported
+```
+
+目录模式递归读取 `.json`，并忽略官方仓库用于展示元数据而不是规则正文的 `index.json`。支持对象或对象数组根节点。
+
+XPath 模式会转换搜索 URL、GET/表单 POST、作品列表、作品名称与链接、多线路和剧集链接；`@keyword` 映射为 `{{title}}`，相对链接通过 `base_url` 规范化。API 模式支持 GET/POST、query、headers、JSON/form body、受限 JSONPath、嵌套线路、整份章节响应变量和播放页模板。`@source`、`@episodeUrl`、从零开始的线路/剧集索引和从一开始的序号都转换为 Source Spec 的显式模板变量。
+
+Kazumi 通常把剧集地址解析到播放页，因此统一映射为 `browser_sniff`。规则只提供站点与 API host，不能证明最终 CDN 范围，导入结果会输出 `overlay_required`，由审核后的 overlay 扩充 `resolve.allowed_hosts`。Referer、User-Agent 和来源 Cookie 会话语义被保留。
+
+安全相关行为采用保守策略：
+
+- `deprecated` 规则导入但默认禁用。
+- 启用验证码/反爬配置的规则不复制脚本，输出 `interactive_required` 并禁用。
+- 固定 `Authorization`、Cookie、API key 等凭据头会删除，输出 `sensitive_header_dropped` 并禁用。
+- `adBlocker` 与 `useLegacyParser` 是 Kazumi WebView 实现细节，只输出明确 warning。
+- `delimited` API 章节格式目前无法由 Source Spec v1 collection 无损表示，输出 `unsupported_rule` error；当前官方规则使用的 API 章节格式为 `nested`。
+
+合成 fixture 覆盖 XPath 与 API 两条路径；兼容性验收还会对公开 KazumiRules 工作副本执行两次离线转换并比较产物。该检查不请求来源站点，也不把上游规则正文复制进本仓库。
+
 ## Nagare schema 1
 
 ```sh
@@ -71,6 +97,8 @@ go run ./cmd/nagare-source import nagare-v1 \
 - `invalid_upstream`、`invalid_source`、`invalid_generated_source`
 - `id_normalized`、`tier_clamped`、`limit_clamped`
 - `regex_rewritten`、`overlay_required`、`selftest_missing`
+- `deprecated_source`、`interactive_required`、`sensitive_header_dropped`
+- `selector_inferred`、`variable_normalized`、`legacy_type_normalized`
 - `invalid_overlay`、`overlay_applied`、`duplicate_source`
 
 ## Overlay
