@@ -90,8 +90,16 @@ CLI 已增加 `import animeko` 和 `import nagare-v1`，统一执行转换、ove
 
 本地只读兼容性验收对官方 KazumiRules 当前 84 条规则进行了两次离线转换，84 条均通过 Source Spec 与安全 lint，且两次来源 YAML 和诊断逐字节一致。12 条规则保持启用，其他规则因上游弃用、验证码交互或固定凭据而禁用。合成测试另外固定了 XPath/API 转换、POST JSON、变量模板、凭据删除、同站点 Animeko/Kazumi 身份收敛和 CLI 目录导入行为；没有访问第三方资源站点或提交其规则正文。
 
+### M3 隔离浏览器解析内核完成
+
+新增 Go 浏览器 resolver 与 chromedp 适配器。每次解析建立临时 Chrome profile 和仅监听回环地址的出站代理；浏览器 HTTP/HTTPS 请求必须经过代理的 allowlist、DNS 公网地址筛选与固定 IP 拨号，HTTPS CONNECT 同样不能绕过边界。浏览器还关闭后台联网、扩展、同步、组件更新、应用缓存和非代理 WebRTC UDP，并在解析结束后关闭 tunnel、删除 profile。
+
+网络事件解析支持 `include`、`exclude`、命名/数字 `capture_group`、同会话 `nested_include`、跳转上限、总 deadline 和调用方取消。只有收到 HTTP 2xx 响应且扩展名/MIME 与 transport 一致的媒体才会返回；Referer、Origin、User-Agent 和当前会话 Cookie 可以临时交给播放器，但不会持久化。运行时 URL 日志删除 credentials、fragment 与 query，底层 CDP 日志也被关闭，避免短期签名出现在普通日志中。
+
+确定性替身测试覆盖嵌套导航、HLS/HTTP 判断、失败响应、跨边界跳转、私网与 RFC 6598 地址、取消、超时和脱敏。真实 headless Chrome 冒烟测试使用本地临时页面触发带短期 token 的 HLS 请求，验证固定 Referer、偏好 Cookie、页面会话 Cookie、媒体可读响应、日志无 token，以及返回前 profile 已删除。该测试不访问第三方站点，可通过 `make selftest-browser` 运行。
+
 ### 仓库与计划
 
 建立了公开仓库 `nagare-project/Nagare_Source`，默认分支为 `main`，采用 MIT License。完整路线记录在 `docs/plan.md`，包含来源导入、BT 索引、resolver、浏览器嗅探、Nagare 接入、健康检查和社区发布流程。
 
-下一阶段需要把 BT SQLite 接入定期抓取与发布并完成来源网络自检，再进入运行时 resolver、浏览器嗅探和 Nagare 客户端接入。当前版本完成的是统一接头和可验收的 M0–M2 仓库/导入基线，还没有交付“点击某一集即可播放”的完整链路。
+下一阶段需要把 BT SQLite 接入定期抓取与发布并完成来源网络自检，再实现 Plugin API、跨来源并发和 Nagare 客户端接入。当前版本完成的是统一接头和可验收的 M0–M3 协议、导入及浏览器解析基线，还没有交付“点击某一集即可播放”的完整链路。

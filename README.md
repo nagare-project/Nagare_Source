@@ -4,7 +4,7 @@ Nagare Source 是面向番剧资源发现与播放解析的统一来源协议和
 
 仓库把 Animeko、Kazumi、Nagare 现有规则以及社区新增规则规范化为同一种来源描述。客户端只需要实现一次 Nagare Source 协议，即可接收 HTTP/HLS、磁力和 `.torrent` 候选，并按来源质量、实时健康度与用户偏好完成选择。
 
-当前已完成 M0–M2 的协议基线、Animeko/Nagare v1/Kazumi 导入链路与确定性 BT SQLite 发布产物。完整路线见 [docs/plan.md](docs/plan.md)。
+当前已完成 M0–M3 的协议基线、来源导入、确定性 BT SQLite 发布产物与隔离浏览器解析内核。完整路线见 [docs/plan.md](docs/plan.md)。
 
 ## 设计原则
 
@@ -78,9 +78,10 @@ go run ./cmd/nagare-source import kazumi \
 - [导入器与 Overlay](docs/importers.md)
 - [BT Index v1](docs/bt-index-v1.md)
 - [BT Source Crawler](docs/bt-crawler.md)
+- [Browser Resolver Runtime](docs/browser-runtime.md)
 - [开发日志](docs/changelog.md)
 - [完整实施计划](docs/plan.md)
 
 ## 当前范围
 
-M0–M2 已实现并可验收。当前支持 Animeko RSS/web-selector v2、Kazumi XPath/API、Nagare schema 1、受网络边界约束的 BT 抓取与离线自检，以及确定性 repository index 与 `bt-index.sqlite.zst`。Kazumi 的验证码脚本不会被导入；弃用、需要交互或携带固定凭据的规则默认禁用。生产来源清单、定时网络运行、逐项许可证核对、WEB resolver、浏览器嗅探和 Nagare 客户端接入继续按 M3–M5 实现。仓库中的 `example.invalid` 规则仅用于离线协议示例，不是可播放的生产来源。
+M0–M3 已实现并可验收。当前支持 Animeko RSS/web-selector v2、Kazumi XPath/API、Nagare schema 1、受网络边界约束的 BT 抓取与离线自检、确定性 repository index 与 `bt-index.sqlite.zst`，以及带 DNS 固定代理、临时 profile、Cookie/Referer 传递、取消、超时和日志脱敏的浏览器嗅探内核。Kazumi 的验证码脚本不会被导入；弃用、需要交互或携带固定凭据的规则默认禁用。生产来源清单、定时网络运行、逐项许可证核对、Plugin API 服务和 Nagare 客户端接入继续按 M4–M5 实现。仓库中的 `example.invalid` 规则仅用于离线协议示例，不是可播放的生产来源。
