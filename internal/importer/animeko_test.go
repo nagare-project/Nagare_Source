@@ -117,7 +117,8 @@ func assertValidSource(t *testing.T, source map[string]any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validator.Validate(repository.SourceSchemaName, source); err != nil {
+	path := filepath.Join(root, "sources", stringValue(source["kind"]), stringValue(source["id"])+".yaml")
+	if err := validator.ValidateSource(root, path, source); err != nil {
 		t.Fatalf("imported source does not satisfy Source Spec v1: %v", err)
 	}
 }

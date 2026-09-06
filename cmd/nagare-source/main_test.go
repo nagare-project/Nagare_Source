@@ -58,3 +58,55 @@ func TestReadBTSourcePathsRecursivelyAndDeterministically(t *testing.T) {
 		t.Fatalf("unexpected BT source order: %v", actual)
 	}
 }
+
+func TestReadKazumiInputsSkipsRepositoryIndex(t *testing.T) {
+	directory := t.TempDir()
+	for name, data := range map[string]string{
+		"rule.json":  `{}`,
+		"index.json": `[]`,
+		"README.md":  `ignored`,
+	} {
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	inputs, err := readImportInputs(directory, "kazumi", "https://example.invalid/{path}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != 1 || filepath.Base(inputs[0].Path) != "rule.json" {
+		t.Fatalf("unexpected Kazumi inputs: %+v", inputs)
+	}
+}
+
+func TestImportKazumiDirectoryEndToEnd(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "imported")
+	diagnostics := filepath.Join(t.TempDir(), "diagnostics.jsonl")
+	err = importSources([]string{
+		"kazumi",
+		"--root", root,
+		"--input", filepath.Join(root, "fixtures", "importers", "kazumi"),
+		"--upstream", "https://rules.example.invalid/{path}",
+		"--license", "MIT",
+		"--out", output,
+		"--overlays", "",
+		"--diagnostics", diagnostics,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := filepath.Glob(filepath.Join(output, "web", "*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("got %d generated Kazumi sources, want 2", len(paths))
+	}
+	if info, err := os.Stat(diagnostics); err != nil || info.Size() == 0 {
+		t.Fatalf("diagnostics were not written: info=%v err=%v", info, err)
+	}
+}

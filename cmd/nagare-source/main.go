@@ -184,7 +184,7 @@ func readBTSourcePaths(inputPath string) ([]string, error) {
 
 func importSources(arguments []string) error {
 	if len(arguments) == 0 {
-		return errors.New("import requires an ecosystem: animeko or nagare-v1")
+		return errors.New("import requires an ecosystem: animeko, kazumi, or nagare-v1")
 	}
 	ecosystem := arguments[0]
 	flags := flag.NewFlagSet("import "+ecosystem, flag.ContinueOnError)
@@ -201,8 +201,8 @@ func importSources(arguments []string) error {
 	if *input == "" {
 		return errors.New("--input is required")
 	}
-	if ecosystem != "animeko" && ecosystem != "nagare-v1" {
-		return fmt.Errorf("unsupported importer %q; expected animeko or nagare-v1", ecosystem)
+	if ecosystem != "animeko" && ecosystem != "kazumi" && ecosystem != "nagare-v1" {
+		return fmt.Errorf("unsupported importer %q; expected animeko, kazumi, or nagare-v1", ecosystem)
 	}
 	inputs, err := readImportInputs(*input, ecosystem, *upstream)
 	if err != nil {
@@ -215,6 +215,8 @@ func importSources(arguments []string) error {
 		switch ecosystem {
 		case "animeko":
 			imported = importer.ImportAnimeko(inputDocument.Data, options)
+		case "kazumi":
+			imported = importer.ImportKazumi(inputDocument.Data, options)
 		case "nagare-v1":
 			imported = importer.ImportNagareV1(inputDocument.Data, options)
 		}
@@ -321,7 +323,10 @@ func readImportInputs(inputPath, ecosystem, upstream string) ([]importInput, err
 			return nil
 		}
 		extension := strings.ToLower(filepath.Ext(path))
-		if (ecosystem == "animeko" && extension == ".json") || (ecosystem == "nagare-v1" && (extension == ".yaml" || extension == ".yml")) {
+		if ((ecosystem == "animeko" || ecosystem == "kazumi") && extension == ".json") || (ecosystem == "nagare-v1" && (extension == ".yaml" || extension == ".yml")) {
+			if ecosystem == "kazumi" && strings.EqualFold(entry.Name(), "index.json") {
+				return nil
+			}
 			paths = append(paths, path)
 		}
 		return nil
@@ -427,5 +432,6 @@ Usage:
   nagare-source crawl-bt --source FILE --out FILE [--title TITLE] [--episode NUMBER] [--selftest]
   nagare-source build [--root PATH] [--out PATH] [--version VERSION] [--generated-at RFC3339] [--bt-records FILE]
   nagare-source import animeko --input FILE --upstream URL --license SPDX [--out PATH]
+  nagare-source import kazumi --input FILE --upstream URL --license SPDX [--out PATH]
   nagare-source import nagare-v1 --input FILE --upstream URL --license SPDX [--out PATH]`)
 }

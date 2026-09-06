@@ -29,6 +29,18 @@ func TestImporterFixtures(t *testing.T) {
 			importer:  ImportNagareV1,
 			wantCount: 1,
 		},
+		{
+			name:      "kazumi xpath",
+			path:      filepath.Join(root, "fixtures", "importers", "kazumi", "xpath.json"),
+			importer:  ImportKazumi,
+			wantCount: 1,
+		},
+		{
+			name:      "kazumi api",
+			path:      filepath.Join(root, "fixtures", "importers", "kazumi", "api.json"),
+			importer:  ImportKazumi,
+			wantCount: 1,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
