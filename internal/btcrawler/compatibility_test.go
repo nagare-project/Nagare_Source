@@ -49,3 +49,37 @@ func TestImportedAnimekoRSSCanBeCrawled(t *testing.T) {
 		t.Fatalf("unexpected imported-rule record: %+v", record)
 	}
 }
+
+func TestImportedNagareV1XMLCanBeCrawled(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, err := os.ReadFile(filepath.Join(root, "fixtures", "importers", "nagare-v1", "source.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported := importer.ImportNagareV1(fixture, importer.Options{
+		Upstream: "https://example.invalid/source.yaml",
+		License:  "MIT",
+	})
+	if imported.HasErrors() || len(imported.Sources) != 1 {
+		t.Fatalf("fixture import failed: sources=%d diagnostics=%+v", len(imported.Sources), imported.Diagnostics)
+	}
+	source := imported.Sources[0]
+	query, err := btcrawler.SelfTestQuery(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := `<rss xmlns:torrent="https://legacy.example.invalid/xmlns/torrent"><channel><item><title>[Legacy] Fixture Imported Rule EP 02</title><enclosure url="magnet:?xt=urn:btih:4123456789abcdef0123456789abcdef01234567"/><torrent:contentLength>8192</torrent:contentLength><pubDate>Fri, 02 Jan 2026 03:04:05 GMT</pubDate></item></channel></rss>`
+	result, err := btcrawler.Crawl(context.Background(), source, query, btcrawler.StaticFetcher{Response: btcrawler.Response{Body: []byte(response)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := btcrawler.CheckSelfTest(source, result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Records) != 1 || result.Records[0].SizeBytes == nil || *result.Records[0].SizeBytes != 8192 {
+		t.Fatalf("imported Nagare rule did not produce expected record: %+v", result)
+	}
+}

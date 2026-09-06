@@ -78,6 +78,8 @@ CLI 已增加 `import animeko` 和 `import nagare-v1`，统一执行转换、ove
 
 网络读取执行 `allowed_hosts`、重定向次数、超时、响应体大小和 DNS 公网地址检查，不使用环境代理；固定认证头、Cookie、URL credentials 和私网目标会被拒绝。错误日志只保留脱敏后的请求 URL。离线 fixture 使用同一解析链，只替换网络响应，因此 CI 可以稳定执行来源 selftest，再把其 JSONL 结果送进两次独立 SQLite 构建比较。
 
+真实只读冒烟测试也验证了安全边界和兼容性：临时导入的 AnimeGarden 入口首先因跳转目标不在 `allowed_hosts` 而被阻止；把实际 API 主机显式加入临时 allowlist 后，同一规则成功规范化 47 条记录，并稳定折叠一条重复 infohash。测试规则、响应和结果只保存在临时目录，未在许可证尚未核对时写入仓库。
+
 ### 仓库与计划
 
 建立了公开仓库 `nagare-project/Nagare_Source`，默认分支为 `main`，采用 MIT License。完整路线记录在 `docs/plan.md`，包含来源导入、BT 索引、resolver、浏览器嗅探、Nagare 接入、健康检查和社区发布流程。
