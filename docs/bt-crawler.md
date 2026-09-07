@@ -49,4 +49,4 @@ go run ./cmd/nagare-source crawl-bt \
 - HTTP 非 2xx 拒绝，以及压缩响应解码后的大小限制。
 - 错误信息中的 URL query 整体脱敏。
 
-发布前仍需由调度环境执行频率与并发控制；单次 `crawl-bt` 只发起每个来源的一次 Search 请求。
+单次 `crawl-bt` 只发起每个来源的一次 Search 请求；Plugin API 的 Source Spec 运行时会在实时多来源查询中执行每个来源的并发数、请求频率和总 deadline。

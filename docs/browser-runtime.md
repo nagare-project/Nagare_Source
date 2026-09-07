@@ -46,4 +46,4 @@ make selftest-browser
 
 - 验证码与交互式登录仍返回 `interactive_required`，运行时不自动绕过。
 - HTTPS tunnel 无法在代理层按解密后的响应体计数；解析器在媒体响应出现后立即取消会话，并用总 deadline 限制暴露窗口。
-- M3 只提供安全的媒体解析内核。Candidate 组装、跨来源并发和 Plugin API NDJSON 服务属于 M4。
+- M3 的安全媒体解析内核现已接入 Source Spec 执行器；Candidate 组装、跨来源并发和 Plugin API NDJSON 服务由 M4 进程端提供。Nagare 客户端的播放器选择与自动换源仍在客户端仓库实现。

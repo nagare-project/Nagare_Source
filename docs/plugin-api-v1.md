@@ -2,12 +2,29 @@
 
 Plugin API v1 是 Nagare 与来源运行时之间的 HTTP/JSON 协议。默认监听回环地址；远程部署必须使用 TLS 和部署方提供的认证。协议主版本为 `1`。
 
+## 0. 启动实现
+
+仓库自带的 Go 进程端可直接执行：
+
+```sh
+go run ./cmd/nagare-source serve \
+  --root . \
+  --listen 127.0.0.1:7788 \
+  --version dev
+```
+
+`serve` 在开始监听前校验全部来源，只接受 `127.0.0.0/8` 或 `::1` 的显式 IP；不能用 `localhost`、通配地址或外网地址绕过本地边界。端口设为 `0` 时由系统分配空闲端口，实际 URL 会写到标准输出，便于 Nagare 作为子进程启动并发现入口。需要指定浏览器时使用 `--chrome PATH`。
+
+可用 `make selftest-plugin` 执行离线运行时/API 回归。仓库示例域名为 `example.invalid`，因此普通启动只用于协议开发；`example-rss` 的 fixture selfcheck 不访问网络。
+
 ## 1. 通用规则
 
 - 基础路径为 `/v1`，请求和普通响应使用 UTF-8 JSON。
 - `POST /v1/candidates` 使用 `application/x-ndjson` 流式返回。
+- POST 请求要求 `Content-Type: application/json`，请求体上限为 1 MiB，开始流之前拒绝未知字段和非法集号。
 - 未识别字段按对应 JSON Schema 的 `additionalProperties` 规则处理；请求 v1 默认拒绝未知字段。
 - 每个请求可携带 `X-Request-ID`；插件应原样返回，日志也使用该 ID 关联，不能记录用户令牌。
+- 已完成协商的客户端可发送 `X-Nagare-Protocol-Version: 1`；不支持或无法解析的版本返回 HTTP `426`。
 - 客户端断开连接或取消请求时，插件必须取消尚未完成的来源任务和浏览器会话。
 
 ## 2. Manifest 与版本协商
@@ -61,6 +78,8 @@ Cache-Control: no-store
 ```
 
 所有启用来源并发启动。每行是一个完整 JSON 事件，以换行结束：
+
+进程端先把请求交给统一 Source Spec 运行时：WEB 来源执行搜索、条目匹配、选集、线路与 direct/browser resolve；BT 来源复用同一安全抓取器并转换为 torrent Candidate。CSS、XPath、受限 JSONPath、正则、模板和无副作用 transform 都在声明式运行时执行。每个来源的并发数、请求频率、总 deadline、响应大小、跳转和 `allowed_hosts` 独立生效。
 
 ### `candidate`
 
@@ -118,7 +137,9 @@ Cache-Control: no-store
 }
 ```
 
-`mode` 为 `fixture` 或 `network`。fixture 模式不得访问网络。响应为普通 JSON，逐来源返回 `healthy`、`degraded`、`unavailable` 或 `interactive_required`，以及分阶段耗时和结构化错误分类。自检不返回或持久化最终签名媒体 URL。
+`mode` 为 `fixture` 或 `network`。fixture 模式不得访问网络。响应为普通 JSON，逐来源返回 `healthy`、`degraded`、`unavailable` 或 `interactive_required`、总耗时和结构化错误分类；实现可以追加分阶段耗时。自检不返回或持久化最终签名媒体 URL。
+
+当前 CLI 会自动连接 `fixtures/responses/<sourceId>.xml|rss|json|txt` 中存在的 BT fixture；缺少 fixture 的来源在 fixture 模式返回结构化 degraded 结果，不会退回网络请求。重复或未知 source ID 在执行任何自检前返回 HTTP `400`。
 
 ## 6. Health
 
@@ -138,3 +159,5 @@ Cache-Control: no-store
 ## 7. 选择与并发约定
 
 插件流只负责尽快交付候选，不决定播放器最终选择。Nagare 同时启动 WEB 与 BT 工作；验证通过的高优先级 WEB 候选可以立即起播，BT 继续运行并进入换源列表。客户端排序至少考虑 tier、channel tier、匹配置信度、滚动成功率、解析延迟、分辨率、字幕偏好，以及 BT 的做种数、发布时间和体积。
+
+本仓库实现到进程端的并发 Candidate 流为止。插件生命周期、NDJSON 消费、候选列表、首个在线候选起播、播放器失败后的下一来源/BT 回退和手动换源入口属于 Nagare 客户端仓库的 M4 工作。

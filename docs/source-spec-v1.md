@@ -239,4 +239,4 @@ resolve:
 
 完整示例见 [`sources/web/example-http.yaml`](../sources/web/example-http.yaml) 和 [`sources/bt/example-rss.yaml`](../sources/bt/example-rss.yaml)。
 
-仓库提供的 M1 BT 执行器、离线自检方式和当前 XPath/JSONPath 子集见 [BT Source Crawler](bt-crawler.md)。
+仓库提供的统一执行器会把 WEB direct、WEB browser-sniff 与 BT 结果全部转换为 Candidate，并通过 Plugin API 并发输出。运行时入口和 NDJSON 行为见 [Plugin API v1](plugin-api-v1.md)；独立 BT 抓取、离线自检与索引输入见 [BT Source Crawler](bt-crawler.md)。

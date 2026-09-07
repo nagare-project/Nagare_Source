@@ -2,6 +2,30 @@
 
 ---
 
+## [Unreleased] - 2026-09-07
+
+### Source Spec v1 已成为统一运行时
+
+新增 `internal/sourceruntime`，直接执行规范化来源，不为 Animeko、Kazumi 或社区规则保留生态专用分支。WEB 流程覆盖标题别名搜索、条目匹配、单/多线路选集、集号校验、direct HLS/HTTP 轻量可读性检查和 M3 browser-sniff；BT 流程复用安全抓取器并把规范化记录转换成同一个 Candidate v1。
+
+提取层实现 CSS、XPath、受限 JSONPath、正则、字段依赖、模板、`any`、items/zipped collection、响应级变量和 Source Spec 的无副作用 transform。HTML 字符串简写按 CSS 解释，XML/RSS 按 XPath 解释；zipped collection 按最短必填列稳定合并。运行时测试覆盖 Animeko CSS、Kazumi XPath/API、JSON WEB、BT、direct HLS 和 browser-sniff 端到端形状。
+
+每个来源共享并发 semaphore 与速率门，来源总 deadline 覆盖排队、搜索、选集和最终解析。所有 HTTP 请求继续执行 allowed-host、DNS 公网地址、跳转、响应大小和凭据边界。请求 URL 参数按 query 编码，JSON body 变量按 JSON 字符串规则转义；模板替换只扫描规则原文一次，不会把用户输入中的 `{{...}}` 再解释为模板。
+
+### Plugin API v1 进程端完成
+
+新增 `nagare-source serve`，在加载时校验仓库来源，并只允许显式回环 IP。进程提供 `/v1/manifest`、`/v1/sources`、`/v1/candidates`、`/v1/selfcheck` 和 `/v1/health`，支持 `X-Nagare-Protocol-Version` 协商、`X-Request-ID` 回显、1 MiB 严格 JSON 请求边界、无缓存响应和信号关闭。关闭或客户端断开会沿请求 context 取消来源工作与浏览器会话。
+
+Candidate 协调器并发启动所有启用来源，谁先通过验证就先写 NDJSON；单来源错误独立输出 `source_error`，不会阻塞 WEB/BT 的其他结果。输出 Candidate 在发送前再次通过 Candidate v1 Schema，检查来源归属与请求内唯一 ID；最后恰好写一条 `done`，统计成功/失败来源。离线 fixture selfcheck 与真实回环 HTTP 冒烟已经验证 `serve` 到 BT runtime 的完整链路。
+
+这次按边界拆成两笔实现提交：`579166a` 交付 Source Spec 执行器与请求模板安全，`be6f88f` 交付 Plugin API 和 `serve`。本日志与相关说明单独提交。
+
+### M4 边界与下一步
+
+本仓库已经交付 M4 所需的插件进程端和可流式消费的统一 Candidate 接口。计划中“管理插件生命周期、消费 NDJSON、统一候选 UI、在线快速选择、播放器错误换源与 BT 回退”需要修改 Nagare 主程序，不在 `Nagare_Source` 仓库内，因此尚未把 M4 整体标记为完成。
+
+下一步应在 Nagare 客户端仓库加入子进程 readiness/版本协商、增量 NDJSON 解码、候选排序与播放状态机；本仓库随后进入 M5 的生产来源许可核对、定时网络健康检查和版本化社区发布。
+
 ## [0.1.0] - 2026-09-06
 
 ### 先确定统一接口，再接具体来源
