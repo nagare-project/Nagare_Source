@@ -4,7 +4,7 @@
 
 ## 新增规则
 
-1. 从 [`sources/web/example-http.yaml`](../sources/web/example-http.yaml) 或 [`sources/bt/example-rss.yaml`](../sources/bt/example-rss.yaml) 复制最接近的示例。
+1. 从 [`templates/web.yaml`](../templates/web.yaml) 或 [`templates/bt.yaml`](../templates/bt.yaml) 复制最接近的模板；需要修补导入结果时使用 [`templates/overlay.yaml`](../templates/overlay.yaml)。`sources/` 下的 example 文件是离线协议 fixture，不应当作生产来源改名提交。
 2. 选择稳定的 `id`，保存为 `sources/<kind>/<id>.yaml`。ID 和文件名一经发布不应更改。
 3. 填写真实 `origin.upstream`、上游版本和许可证。无法确认再分发权限时不要提交规则正文。
 4. 设置最小的 `allowed_hosts`、请求限制和解析正则。不要用通配符允许无关域名。
@@ -22,13 +22,15 @@ go test ./...
 make check
 make test
 make selftest-bt
+make selftest-plugin
+make health
 ```
 
 ## 校验内容
 
 当前工具会执行：
 
-- 四份 JSON Schema 的语法和数据校验。
+- 五份 JSON Schema 的语法和数据校验，包括来源健康报告。
 - 来源 ID 唯一性、ID/文件名一致性和 kind/目录一致性。
 - 模板语法、变量存在性和 RE2 正则编译。
 - HTTP(S) URL、字面私网/回环地址、`allowed_hosts` 和敏感固定 header 检查。

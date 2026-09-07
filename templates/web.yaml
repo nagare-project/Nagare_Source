@@ -1,0 +1,73 @@
+schema: nagare-source/v1
+id: template-web
+name: Replace Me WEB
+description: Replace this description with the source capability and scope.
+kind: web
+tier: 2
+enabled: true
+
+origin:
+  ecosystem: community
+  upstream: https://replace-me.invalid/source.yaml
+  version: "1"
+  license: MIT
+
+search:
+  request:
+    method: GET
+    url: https://replace-me.invalid/api/search
+    query:
+      q: "{{title}}"
+    allowed_hosts:
+      - replace-me.invalid
+  response: json
+  items: $.items[*]
+  fields:
+    title: $.title
+    subject_key: $.id
+
+episodes:
+  request:
+    method: GET
+    url: https://replace-me.invalid/api/subjects/{{subject_key}}/episodes
+    allowed_hosts:
+      - replace-me.invalid
+  response: json
+  items: $.episodes[*]
+  fields:
+    number:
+      type: jsonpath
+      expression: $.number
+      transforms: [parse_episode]
+    play_url:
+      type: jsonpath
+      expression: $.hls
+
+resolve:
+  mode: direct
+  transport: hls
+  url: "{{play_url}}"
+  request_headers:
+    Referer: https://replace-me.invalid/
+  allowed_hosts:
+    - media.replace-me.invalid
+
+defaults:
+  resolution: 1080P
+  subtitle_languages: [zh-Hans]
+  channel_tier: 0
+
+limits:
+  concurrency: 2
+  requests_per_minute: 30
+  timeout_ms: 15000
+  max_response_bytes: 2097152
+  max_redirects: 3
+
+selftest:
+  request:
+    titles: [Replace Me Animation]
+    episode: 1
+  expect:
+    min_candidates: 1
+    transport: hls

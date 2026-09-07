@@ -1,0 +1,9 @@
+schema: nagare-source-overlay/v1
+source_id: template-web
+origin_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+reason: Replace this text with the fact that cannot be inferred from upstream.
+patch:
+  resolve:
+    allowed_hosts:
+      - replace-me.invalid
+      - "*.media.replace-me.invalid"

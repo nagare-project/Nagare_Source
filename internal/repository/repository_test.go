@@ -147,6 +147,35 @@ func TestSourceSchemaAcceptsLinesAndRejectsEpisodesForBT(t *testing.T) {
 	}
 }
 
+func TestContributionSourceTemplatesPassSchemaAndSecurityLint(t *testing.T) {
+	root := repositoryRoot(t)
+	validator, err := NewValidator(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		kind string
+		id   string
+	}{
+		{name: "web.yaml", kind: "web", id: "template-web"},
+		{name: "bt.yaml", kind: "bt", id: "template-bt"},
+	} {
+		value, err := LoadDocument(filepath.Join(root, "templates", test.name))
+		if err != nil {
+			t.Fatalf("%s: %v", test.name, err)
+		}
+		document, ok := value.(map[string]any)
+		if !ok {
+			t.Fatalf("%s: template root is not an object", test.name)
+		}
+		path := filepath.Join(root, "sources", test.kind, test.id+".yaml")
+		if err := validator.ValidateSource(root, path, document); err != nil {
+			t.Errorf("%s is not a valid copyable source: %v", test.name, err)
+		}
+	}
+}
+
 func TestSourceSchemaAcceptsEpisodeVariablesAndTemplateExtractor(t *testing.T) {
 	root := repositoryRoot(t)
 	validator, err := NewValidator(root)

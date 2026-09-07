@@ -24,6 +24,7 @@ overlays/     对自动导入结果的人工修补
 fixtures/     离线解析样本
 reports/      来源健康与性能报告
 dist/         CI 生成的版本化发布产物
+templates/    可复制并由测试持续校验的社区规则模板
 docs/         协议与实施文档
 ```
 
