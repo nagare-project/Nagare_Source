@@ -59,6 +59,17 @@ func TestBuildIsDeterministicAndDigestMatches(t *testing.T) {
 	if index.Artifacts.BTIndex.Records != 1 || index.Artifacts.BTIndex.Digest != sha256Digest(firstBTIndex) {
 		t.Fatalf("unexpected BT artifact metadata: %+v", index.Artifacts.BTIndex)
 	}
+	firstHealth, err := os.ReadFile(filepath.Join(first, "health.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondHealth, err := os.ReadFile(filepath.Join(second, "health.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(firstHealth, secondHealth) || index.Artifacts.Health.Digest != sha256Digest(firstHealth) || index.Artifacts.Health.GeneratedAt != "2026-09-07T00:00:00Z" {
+		t.Fatalf("health artifact is not deterministic or indexed: %+v", index.Artifacts.Health)
+	}
 	if len(index.Sources) != 2 || index.Sources[0].ID != "example-http" || index.Sources[1].ID != "example-rss" {
 		t.Fatalf("sources are not sorted by id: %+v", index.Sources)
 	}

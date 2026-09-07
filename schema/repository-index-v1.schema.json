@@ -16,7 +16,7 @@
     "artifacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["btIndex"],
+      "required": ["btIndex", "health"],
       "properties": {
         "btIndex": {
           "type": "object",
@@ -27,6 +27,18 @@
             "format": { "const": "sqlite3+zstd" },
             "schemaVersion": { "const": 1 },
             "records": { "type": "integer", "minimum": 0 },
+            "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+          }
+        },
+        "health": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "format", "schemaVersion", "generatedAt", "digest"],
+          "properties": {
+            "path": { "const": "health.json" },
+            "format": { "const": "json" },
+            "schemaVersion": { "const": 1 },
+            "generatedAt": { "type": "string", "format": "date-time" },
             "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
           }
         }

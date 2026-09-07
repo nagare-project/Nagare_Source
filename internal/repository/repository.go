@@ -86,6 +86,7 @@ type Index struct {
 
 type Artifacts struct {
 	BTIndex BTIndexArtifact `json:"btIndex"`
+	Health  HealthArtifact  `json:"health"`
 }
 
 type BTIndexArtifact struct {
@@ -93,6 +94,14 @@ type BTIndexArtifact struct {
 	Format        string `json:"format"`
 	SchemaVersion int    `json:"schemaVersion"`
 	Records       int    `json:"records"`
+	Digest        string `json:"digest"`
+}
+
+type HealthArtifact struct {
+	Path          string `json:"path"`
+	Format        string `json:"format"`
+	SchemaVersion int    `json:"schemaVersion"`
+	GeneratedAt   string `json:"generatedAt"`
 	Digest        string `json:"digest"`
 }
 
@@ -387,6 +396,19 @@ func build(root, outputDir, version, generatedAt string, btRecords []btindex.Rec
 	if err := validateBTRecordSources(sources, btRecords); err != nil {
 		return Index{}, err
 	}
+	if err := validateHealthReport(root, validator, sources); err != nil {
+		return Index{}, err
+	}
+	healthValue, err := LoadDocument(filepath.Join(root, "reports", "health.json"))
+	if err != nil {
+		return Index{}, err
+	}
+	healthData, err := json.MarshalIndent(healthValue, "", "  ")
+	if err != nil {
+		return Index{}, err
+	}
+	healthData = append(healthData, '\n')
+	healthDocument := objectValue(healthValue)
 
 	parent := filepath.Dir(outputDir)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
@@ -418,6 +440,14 @@ func build(root, outputDir, version, generatedAt string, btRecords []btindex.Rec
 		SchemaVersion: btindex.SchemaVersion,
 		Records:       artifact.Records,
 		Digest:        artifact.Digest,
+	}
+	healthDigest := sha256.Sum256(healthData)
+	index.Artifacts.Health = HealthArtifact{
+		Path: "health.json", Format: "json", SchemaVersion: 1,
+		GeneratedAt: stringValue(healthDocument["generatedAt"]), Digest: "sha256:" + hex.EncodeToString(healthDigest[:]),
+	}
+	if err := os.WriteFile(filepath.Join(temporary, index.Artifacts.Health.Path), healthData, 0o644); err != nil {
+		return Index{}, err
 	}
 	for _, source := range sources {
 		data, err := canonicalJSON(source.Document)
