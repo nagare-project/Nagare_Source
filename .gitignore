@@ -1,3 +1,4 @@
 /dist/
+/reports/health.html
 *.tmp
 .DS_Store

@@ -74,6 +74,36 @@ func TestNewPluginHandlerLoadsValidatedRepositorySources(t *testing.T) {
 	}
 }
 
+func TestHealthCommandWritesValidatedJSONAndStaticPage(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	jsonPath := filepath.Join(directory, "health.json")
+	htmlPath := filepath.Join(directory, "index.html")
+	if err := health([]string{
+		"--root", root, "--mode", "fixture", "--generated-at", "2026-09-07T00:00:00Z",
+		"--out", jsonPath, "--html", htmlPath, "--concurrency", "2",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	jsonData, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"healthy": 1`, `"degraded": 1`, `"id": "example-http"`, `"id": "example-rss"`) {
+		t.Fatalf("health JSON is incomplete: %s", jsonData)
+	}
+	htmlData, err := os.ReadFile(htmlPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsAll(string(htmlData), "Nagare Source Health", "example-http", "example-rss", "health.json") {
+		t.Fatalf("health page is incomplete: %s", htmlData)
+	}
+}
+
 func containsAll(value string, needles ...string) bool {
 	for _, needle := range needles {
 		if !strings.Contains(value, needle) {

@@ -88,6 +88,22 @@ func serve(arguments []string) error {
 }
 
 func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, error) {
+	runners, err := loadSourceRunners(root, chromePath)
+	if err != nil {
+		return nil, err
+	}
+	return pluginapi.New(pluginapi.Options{
+		Root: root,
+		Manifest: pluginapi.Manifest{
+			ID: "org.nagare.source.community", Name: "Nagare Community Sources", Version: version,
+			ProtocolVersions: []int{1}, SourceSchemaVersions: []int{1},
+			Capabilities: []string{"web", "browser_sniff", "bt", "ndjson"},
+		},
+		Runners: runners,
+	})
+}
+
+func loadSourceRunners(root, chromePath string) ([]sourceruntime.Runner, error) {
 	validator, err := repository.NewValidator(root)
 	if err != nil {
 		return nil, err
@@ -103,15 +119,7 @@ func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, err
 			Browser: browser, FixtureFetcher: sourceFixtureFetcher(root, source.Document),
 		}))
 	}
-	return pluginapi.New(pluginapi.Options{
-		Root: root,
-		Manifest: pluginapi.Manifest{
-			ID: "org.nagare.source.community", Name: "Nagare Community Sources", Version: version,
-			ProtocolVersions: []int{1}, SourceSchemaVersions: []int{1},
-			Capabilities: []string{"web", "browser_sniff", "bt", "ndjson"},
-		},
-		Runners: runners,
-	})
+	return runners, nil
 }
 
 func sourceFixtureFetcher(root string, source map[string]any) btcrawler.Fetcher {

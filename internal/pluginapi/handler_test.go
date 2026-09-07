@@ -105,6 +105,21 @@ func TestManifestSourcesHealthAndProtocolNegotiation(t *testing.T) {
 	}
 }
 
+func TestSourcesApplyPersistedHealthStatus(t *testing.T) {
+	handler := testHandler(t, []sourceruntime.Runner{
+		&fakeRunner{source: source("example-http", "web", true)},
+	})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/sources", nil))
+	var body struct {
+		Sources []sourceruntime.Source `json:"sources"`
+	}
+	decodeResponse(t, response, &body)
+	if len(body.Sources) != 1 || body.Sources[0].Status != "degraded" {
+		t.Fatalf("persisted health status was not exposed: %+v", body.Sources)
+	}
+}
+
 func TestCandidatesStreamsFastResultsErrorsAndDone(t *testing.T) {
 	requestBody, err := os.ReadFile("../../fixtures/requests/frieren-episode-3.json")
 	if err != nil {

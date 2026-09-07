@@ -15,7 +15,7 @@ func TestRepositoryFixturesValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 {
+	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 || summary.HealthReports != 1 {
 		t.Fatalf("unexpected validation summary: %+v", summary)
 	}
 }

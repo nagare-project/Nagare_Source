@@ -35,6 +35,8 @@ func main() {
 		err = crawlBT(os.Args[2:])
 	case "serve":
 		err = serve(os.Args[2:])
+	case "health":
+		err = health(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -384,7 +386,7 @@ func validate(arguments []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("validated %d sources, %d resolve requests, %d candidates, and %d BT record entries\n", summary.Sources, summary.Requests, summary.Candidates, summary.BTRecords)
+	fmt.Printf("validated %d sources, %d resolve requests, %d candidates, %d BT record entries, and %d health reports\n", summary.Sources, summary.Requests, summary.Candidates, summary.BTRecords, summary.HealthReports)
 	return nil
 }
 
@@ -433,6 +435,7 @@ Usage:
   nagare-source validate [--root PATH]
   nagare-source crawl-bt --source FILE --out FILE [--title TITLE] [--episode NUMBER] [--selftest]
   nagare-source serve [--root PATH] [--listen 127.0.0.1:7788] [--version VERSION] [--chrome PATH]
+  nagare-source health [--root PATH] [--mode fixture|network] [--out FILE] [--html FILE]
   nagare-source build [--root PATH] [--out PATH] [--version VERSION] [--generated-at RFC3339] [--bt-records FILE]
   nagare-source import animeko --input FILE --upstream URL --license SPDX [--out PATH]
   nagare-source import kazumi --input FILE --upstream URL --license SPDX [--out PATH]

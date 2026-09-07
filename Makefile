@@ -1,4 +1,4 @@
-.PHONY: check test selftest-bt selftest-browser selftest-plugin build clean
+.PHONY: check test selftest-bt selftest-browser selftest-plugin health build clean
 
 VERSION ?= dev
 GENERATED_AT ?=
@@ -17,6 +17,9 @@ selftest-browser:
 
 selftest-plugin:
 	go test ./internal/sourceruntime ./internal/pluginapi ./cmd/nagare-source -count=1
+
+health:
+	go run ./cmd/nagare-source health --mode fixture --out reports/health.json --html reports/health.html
 
 build:
 	go run ./cmd/nagare-source build --version "$(VERSION)" --bt-records fixtures/bt-index/releases.jsonl $(if $(GENERATED_AT),--generated-at "$(GENERATED_AT)",)

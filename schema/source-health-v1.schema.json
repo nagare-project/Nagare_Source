@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nagare-project/Nagare_Source/main/schema/source-health-v1.schema.json",
+  "title": "Nagare source health report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "generatedAt", "mode", "summary", "sources"],
+  "properties": {
+    "schema": { "const": "nagare-source-health/v1" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "mode": { "enum": ["fixture", "network"] },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "healthy", "degraded", "unavailable", "interactiveRequired", "disabled"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "healthy": { "type": "integer", "minimum": 0 },
+        "degraded": { "type": "integer", "minimum": 0 },
+        "unavailable": { "type": "integer", "minimum": 0 },
+        "interactiveRequired": { "type": "integer", "minimum": 0 },
+        "disabled": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sourceHealth" }
+    }
+  },
+  "$defs": {
+    "sourceHealth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "kind", "tier", "version", "status", "durationMs"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["web", "bt"] },
+        "tier": { "type": "integer", "minimum": 0, "maximum": 9 },
+        "version": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["healthy", "degraded", "unavailable", "interactive_required", "disabled"] },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "category": {
+          "enum": [
+            "invalid_request", "unsupported_protocol", "source_disabled", "unsupported_factory",
+            "unsupported_rule", "interactive_required", "search_timeout", "search_failed",
+            "no_subject_match", "episode_not_found", "episode_ambiguous", "resolve_timeout",
+            "resolve_failed", "browser_blocked", "unsafe_redirect", "invalid_candidate", "cancelled"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    }
+  }
+}

@@ -30,6 +30,7 @@ const (
 	RequestSchemaName    = "resolve-request-v1.schema.json"
 	CandidateSchemaName  = "candidate-v1.schema.json"
 	IndexSchemaName      = "repository-index-v1.schema.json"
+	HealthSchemaName     = "source-health-v1.schema.json"
 	defaultGeneratedTime = "1970-01-01T00:00:00Z"
 )
 
@@ -62,10 +63,11 @@ type Validator struct {
 }
 
 type ValidationSummary struct {
-	Sources    int
-	Requests   int
-	Candidates int
-	BTRecords  int
+	Sources       int
+	Requests      int
+	Candidates    int
+	BTRecords     int
+	HealthReports int
 }
 
 type SourceDocument struct {
@@ -117,7 +119,7 @@ func NewValidator(root string) (*Validator, error) {
 	compiler.Draft = jsonschema.Draft2020
 	compiler.AssertFormat = true
 
-	names := []string{SourceSchemaName, RequestSchemaName, CandidateSchemaName, IndexSchemaName}
+	names := []string{SourceSchemaName, RequestSchemaName, CandidateSchemaName, IndexSchemaName, HealthSchemaName}
 	for _, name := range names {
 		path := filepath.Join(root, "schema", name)
 		data, err := os.ReadFile(path)
@@ -251,7 +253,59 @@ func ValidateRepository(root string) (ValidationSummary, error) {
 		}
 		summary.BTRecords += len(records)
 	}
+	if err := validateHealthReport(root, validator, sources); err != nil {
+		return summary, err
+	}
+	summary.HealthReports = 1
 	return summary, nil
+}
+
+func validateHealthReport(root string, validator *Validator, repositorySources []SourceDocument) error {
+	path := filepath.Join(root, "reports", "health.json")
+	value, err := LoadDocument(path)
+	if err != nil {
+		return fmt.Errorf("%s: %w", relative(root, path), err)
+	}
+	if err := validator.Validate(HealthSchemaName, value); err != nil {
+		return fmt.Errorf("%s: %w", relative(root, path), err)
+	}
+	document := objectValue(value)
+	sources := arrayValue(document["sources"])
+	summary := objectValue(document["summary"])
+	if intValue(summary["total"]) != len(sources) {
+		return fmt.Errorf("%s: summary.total does not match sources", relative(root, path))
+	}
+	counts := map[string]int{}
+	expected := make(map[string]bool, len(repositorySources))
+	for _, source := range repositorySources {
+		expected[stringValue(source.Document["id"])] = true
+	}
+	previous := ""
+	for _, value := range sources {
+		source := objectValue(value)
+		id := stringValue(source["id"])
+		if previous != "" && id <= previous {
+			return fmt.Errorf("%s: sources must have unique IDs in ascending order", relative(root, path))
+		}
+		if !expected[id] {
+			return fmt.Errorf("%s: health report references unknown source %q", relative(root, path), id)
+		}
+		delete(expected, id)
+		counts[stringValue(source["status"])]++
+		previous = id
+	}
+	if len(expected) > 0 {
+		return fmt.Errorf("%s: health report does not cover every repository source", relative(root, path))
+	}
+	for status, summaryName := range map[string]string{
+		"healthy": "healthy", "degraded": "degraded", "unavailable": "unavailable",
+		"interactive_required": "interactiveRequired", "disabled": "disabled",
+	} {
+		if intValue(summary[summaryName]) != counts[status] {
+			return fmt.Errorf("%s: summary.%s does not match source statuses", relative(root, path), summaryName)
+		}
+	}
+	return nil
 }
 
 func LoadSources(root string, validator *Validator) ([]SourceDocument, error) {

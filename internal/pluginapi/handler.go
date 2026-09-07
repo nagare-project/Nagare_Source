@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,11 +42,16 @@ type Handler struct {
 	manifest  Manifest
 	runners   []sourceruntime.Runner
 	validator *repository.Validator
+	statuses  map[string]string
 	started   time.Time
 }
 
 func New(options Options) (*Handler, error) {
 	validator, err := repository.NewValidator(options.Root)
+	if err != nil {
+		return nil, err
+	}
+	statuses, err := loadSourceStatuses(options.Root, validator)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +84,7 @@ func New(options Options) (*Handler, error) {
 			return nil, fmt.Errorf("duplicate plugin source id %q", runner.Source().ID)
 		}
 	}
-	return &Handler{manifest: manifest, runners: runners, validator: validator, started: time.Now()}, nil
+	return &Handler{manifest: manifest, runners: runners, validator: validator, statuses: statuses, started: time.Now()}, nil
 }
 
 func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -135,9 +141,39 @@ func (handler *Handler) getSources(writer http.ResponseWriter, request *http.Req
 	}
 	sources := make([]sourceruntime.Source, 0, len(handler.runners))
 	for _, runner := range handler.runners {
-		sources = append(sources, runner.Source())
+		source := runner.Source()
+		if source.Enabled {
+			if status := handler.statuses[source.ID]; status != "" {
+				source.Status = status
+			}
+		} else {
+			source.Status = "disabled"
+		}
+		sources = append(sources, source)
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"sources": sources})
+}
+
+func loadSourceStatuses(root string, validator *repository.Validator) (map[string]string, error) {
+	value, err := repository.LoadDocument(filepath.Join(root, "reports", "health.json"))
+	if err != nil {
+		return nil, err
+	}
+	if err := validator.Validate(repository.HealthSchemaName, value); err != nil {
+		return nil, err
+	}
+	document, _ := value.(map[string]any)
+	items, _ := document["sources"].([]any)
+	statuses := make(map[string]string, len(items))
+	for _, item := range items {
+		source, _ := item.(map[string]any)
+		id, _ := source["id"].(string)
+		status, _ := source["status"].(string)
+		if id != "" && status != "" {
+			statuses[id] = status
+		}
+	}
+	return statuses, nil
 }
 
 func (handler *Handler) getHealth(writer http.ResponseWriter, request *http.Request) {
