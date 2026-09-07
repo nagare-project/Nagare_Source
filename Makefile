@@ -1,4 +1,4 @@
-.PHONY: check test selftest-bt selftest-browser build clean
+.PHONY: check test selftest-bt selftest-browser selftest-plugin build clean
 
 VERSION ?= dev
 GENERATED_AT ?=
@@ -14,6 +14,9 @@ selftest-bt:
 
 selftest-browser:
 	NAGARE_BROWSER_TEST=1 go test ./internal/webresolver -run TestChromeBrowserSniffsEphemeralHLS -v -count=1
+
+selftest-plugin:
+	go test ./internal/sourceruntime ./internal/pluginapi ./cmd/nagare-source -count=1
 
 build:
 	go run ./cmd/nagare-source build --version "$(VERSION)" --bt-records fixtures/bt-index/releases.jsonl $(if $(GENERATED_AT),--generated-at "$(GENERATED_AT)",)

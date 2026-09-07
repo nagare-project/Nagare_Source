@@ -1,8 +1,11 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +36,51 @@ func TestReadImportInputsRecursivelyAndDeterministically(t *testing.T) {
 	if inputs[1].Upstream != "https://example.invalid/rules/t1/%E7%AC%AC%E4%BA%8C.json" {
 		t.Fatalf("Unicode path was not URL-escaped: %s", inputs[1].Upstream)
 	}
+}
+
+func TestServeOnlyAcceptsExplicitLoopbackAddresses(t *testing.T) {
+	for _, address := range []string{"127.0.0.1:7788", "[::1]:0"} {
+		if err := validateListenAddress(address); err != nil {
+			t.Errorf("%s was rejected: %v", address, err)
+		}
+	}
+	for _, address := range []string{"0.0.0.0:7788", "localhost:7788", "192.0.2.1:7788", "missing-port"} {
+		if err := validateListenAddress(address); err == nil {
+			t.Errorf("unsafe listen address %s was accepted", address)
+		}
+	}
+}
+
+func TestNewPluginHandlerLoadsValidatedRepositorySources(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := newPluginHandler(root, "test-version", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/sources", nil))
+	if response.Code != http.StatusOK || !containsAll(response.Body.String(), "example-http", "example-rss") {
+		t.Fatalf("serve handler did not expose repository sources: status=%d body=%s", response.Code, response.Body.String())
+	}
+	selfCheck := httptest.NewRequest(http.MethodPost, "/v1/selfcheck", strings.NewReader(`{"sourceIds":["example-rss"],"mode":"fixture"}`))
+	selfCheck.Header.Set("Content-Type", "application/json")
+	selfCheckResponse := httptest.NewRecorder()
+	handler.ServeHTTP(selfCheckResponse, selfCheck)
+	if selfCheckResponse.Code != http.StatusOK || !strings.Contains(selfCheckResponse.Body.String(), `"status":"healthy"`) {
+		t.Fatalf("committed BT fixture was not connected to selfcheck: status=%d body=%s", selfCheckResponse.Code, selfCheckResponse.Body.String())
+	}
+}
+
+func containsAll(value string, needles ...string) bool {
+	for _, needle := range needles {
+		if !strings.Contains(value, needle) {
+			return false
+		}
+	}
+	return true
 }
 
 func TestReadBTSourcePathsRecursivelyAndDeterministically(t *testing.T) {

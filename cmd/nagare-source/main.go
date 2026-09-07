@@ -33,6 +33,8 @@ func main() {
 		err = importSources(os.Args[2:])
 	case "crawl-bt":
 		err = crawlBT(os.Args[2:])
+	case "serve":
+		err = serve(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -430,6 +432,7 @@ func usage() {
 Usage:
   nagare-source validate [--root PATH]
   nagare-source crawl-bt --source FILE --out FILE [--title TITLE] [--episode NUMBER] [--selftest]
+  nagare-source serve [--root PATH] [--listen 127.0.0.1:7788] [--version VERSION] [--chrome PATH]
   nagare-source build [--root PATH] [--out PATH] [--version VERSION] [--generated-at RFC3339] [--bt-records FILE]
   nagare-source import animeko --input FILE --upstream URL --license SPDX [--out PATH]
   nagare-source import kazumi --input FILE --upstream URL --license SPDX [--out PATH]
