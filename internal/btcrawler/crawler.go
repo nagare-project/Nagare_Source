@@ -182,9 +182,18 @@ func buildRequest(source map[string]any, query Query) (Request, error) {
 	method := stringValue(requestDocument["method"])
 	var body []byte
 	if rawBody, exists := requestDocument["body"].(string); exists {
-		rendered, err := renderTemplate(rawBody, variables, false)
+		var rendered string
+		var err error
+		if strings.Contains(strings.ToLower(headers.Get("Content-Type")), "application/json") {
+			rendered, err = renderJSONTemplate(rawBody, variables)
+		} else {
+			rendered, err = renderTemplate(rawBody, variables, false)
+		}
 		if err != nil {
 			return Request{}, fmt.Errorf("search.request.body: %w", err)
+		}
+		if strings.Contains(strings.ToLower(headers.Get("Content-Type")), "application/json") && !json.Valid([]byte(rendered)) {
+			return Request{}, errors.New("search.request.body: rendered body is not valid JSON")
 		}
 		body = []byte(rendered)
 	}
@@ -412,14 +421,28 @@ func EncodeDiagnostics(diagnostics []Diagnostic) ([]byte, error) {
 }
 
 func renderTemplate(value string, variables map[string]string, escapeURL bool) (string, error) {
-	for strings.Contains(value, "{{") {
-		start := strings.Index(value, "{{")
-		endRelative := strings.Index(value[start+2:], "}}")
+	var output strings.Builder
+	remainder := value
+	for {
+		start := strings.Index(remainder, "{{")
+		unexpectedClose := strings.Index(remainder, "}}")
+		if start < 0 {
+			if unexpectedClose >= 0 {
+				return "", errors.New("malformed template")
+			}
+			output.WriteString(remainder)
+			return output.String(), nil
+		}
+		if unexpectedClose >= 0 && unexpectedClose < start {
+			return "", errors.New("malformed template")
+		}
+		output.WriteString(remainder[:start])
+		endRelative := strings.Index(remainder[start+2:], "}}")
 		if endRelative < 0 {
 			return "", errors.New("malformed template")
 		}
 		end := start + 2 + endRelative
-		name := strings.TrimSpace(value[start+2 : end])
+		name := strings.TrimSpace(remainder[start+2 : end])
 		replacement, exists := variables[name]
 		if !exists {
 			return "", fmt.Errorf("unknown template variable %q", name)
@@ -427,12 +450,21 @@ func renderTemplate(value string, variables map[string]string, escapeURL bool) (
 		if escapeURL {
 			replacement = url.QueryEscape(replacement)
 		}
-		value = value[:start] + replacement + value[end+2:]
+		output.WriteString(replacement)
+		remainder = remainder[end+2:]
 	}
-	if strings.Contains(value, "}}") {
-		return "", errors.New("malformed template")
+}
+
+func renderJSONTemplate(value string, variables map[string]string) (string, error) {
+	escaped := make(map[string]string, len(variables))
+	for name, variable := range variables {
+		encoded, err := json.Marshal(variable)
+		if err != nil {
+			return "", err
+		}
+		escaped[name] = string(encoded[1 : len(encoded)-1])
 	}
-	return value, nil
+	return renderTemplate(value, escaped, false)
 }
 
 func formatNumber(value float64) string {

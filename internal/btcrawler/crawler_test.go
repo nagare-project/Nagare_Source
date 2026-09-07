@@ -2,6 +2,7 @@ package btcrawler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -128,6 +129,46 @@ func TestRequestSecurityAndStaticSizeLimit(t *testing.T) {
 	if strings.Contains(sanitized.Error(), "secret") || !strings.Contains(sanitized.Error(), "network unavailable") {
 		t.Fatalf("request error was not safely sanitized: %v", sanitized)
 	}
+}
+
+func TestJSONRequestBodyEscapesQueryValues(t *testing.T) {
+	source := rssSource()
+	search := objectValue(source["search"])
+	search["response"] = "json"
+	search["items"] = "$.items[*]"
+	requestDocument := objectValue(search["request"])
+	requestDocument["method"] = "POST"
+	requestDocument["headers"] = map[string]any{"Content-Type": "application/json"}
+	requestDocument["body"] = `{"keyword":"{{title}}","episode":{{episode}}}`
+	var captured Request
+	fetcher := FetcherFunc(func(_ context.Context, request Request) (Response, error) {
+		captured = request
+		return Response{Body: []byte(`{"items":[]}`)}, nil
+	})
+	_, err := Crawl(context.Background(), source, Query{Title: `x"},"admin":true,"x":"`, Episode: 3}, fetcher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(captured.Body, &body); err != nil {
+		t.Fatalf("rendered BT request body is invalid JSON: %s: %v", captured.Body, err)
+	}
+	if body["keyword"] != `x"},"admin":true,"x":"` || body["episode"] != float64(3) || len(body) != 2 {
+		t.Fatalf("BT JSON template value escaped its field: %#v", body)
+	}
+}
+
+func TestTemplateDoesNotReinterpretQueryText(t *testing.T) {
+	value, err := renderTemplate("q={{title}}", map[string]string{"title": "{{title}}"}, false)
+	if err != nil || value != "q={{title}}" {
+		t.Fatalf("replacement was interpreted as another template: value=%q err=%v", value, err)
+	}
+}
+
+type FetcherFunc func(context.Context, Request) (Response, error)
+
+func (function FetcherFunc) Fetch(ctx context.Context, request Request) (Response, error) {
+	return function(ctx, request)
 }
 
 func TestWriteJSONLDoesNotReplaceOutputOnInvalidRecord(t *testing.T) {
