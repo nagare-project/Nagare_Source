@@ -69,4 +69,4 @@ SOURCE_DATE_EPOCH=1767323045 \
 
 记录会按 `source_id + info_hash` 排序，数据库使用固定页大小和 schema，Zstandard 编码器固定级别与单线程。相同来源、BT 输入、版本和构建时间会产生逐字节一致的发布目录。
 
-`index.json` 的 `artifacts.btIndex` 给出路径、格式、数据库 schema 版本、记录数和压缩文件的 SHA-256。客户端必须在解压或打开数据库前校验摘要，并拒绝未知 schema 版本。
+`index.json` 的 `artifacts.btIndex` 给出路径、格式、数据库 schema 版本、记录数和压缩文件的 SHA-256；`artifacts.health` 以同样方式记录同一 release 中 `health.json` 的 schema 版本、生成时间和摘要。客户端必须在解压数据库或读取健康报告前校验摘要，并拒绝未知 schema 版本。完整的 Pages 与 tag 发布流程见 [社区发布与来源健康](community-publishing.md)。

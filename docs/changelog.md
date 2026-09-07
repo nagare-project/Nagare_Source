@@ -4,6 +4,24 @@
 
 ## [Unreleased] - 2026-09-07
 
+### M5 来源健康报告与静态页
+
+新增 `nagare-source health` 和 Source Health v1 Schema。fixture 模式复用离线响应，network 模式执行受既有公网边界约束的真实自检；单来源并发受限、panic 相互隔离，结果按 ID 稳定排序并原子写入 JSON 与经过 HTML 转义的静态页。仓库校验现在要求健康报告完整覆盖全部来源、汇总计数准确，Plugin API `/v1/sources` 同时读取已发布状态。
+
+新增每六小时运行的 GitHub Pages workflow，发布网络健康 JSON 与静态页。workflow 使用 GitHub 官方 Pages actions；仓库仍需在 Pages 设置中选择 GitHub Actions 后才会真正上线。实现提交为 `2725d2f`。
+
+### M5 可复现 release 与健康产物
+
+仓库 index 现在要求 `artifacts.health`，构建会把经过 Schema 与语义校验的 `reports/health.json` 复制进 `dist/health.json` 并记录生成时间和 SHA-256。相同来源、BT 输入、健康报告、版本与时间戳的两次完整构建已经逐字节一致。
+
+新增语义化 tag release workflow。`vX.Y.Z` tag 使用对应 commit 时间构建发布目录，再以固定排序、时间、所有者和无 gzip 时间戳的方式生成 tarball 与 `SHA256SUMS`；重复运行会更新同名 release 产物。实现提交为 `70c82d5`。
+
+### M5 贡献模板与剩余门禁
+
+新增通过 Source Schema、安全 lint 和测试持续验证的 WEB、BT 与 overlay 模板，以及 PR 模板中的许可证、fixture、网络边界和健康报告检查项。实现提交为 `9698f1b`。
+
+生产上游规则正文和自动同步仍受逐项许可证及再分发批准阻塞；现有兼容性测试不能代替授权。Source Spec 目前只有 v1，破坏性迁移器也必须等待一个真实目标 schema 和确定字段映射，避免现在生成会猜测未来语义的空壳工具。Nagare 客户端的完整接入仍需要目标应用明确接受第三方在线来源桥接范围。M5 已完成可在本仓库内独立验收的发布基础设施，但不把上述外部前置条件伪装成已经完成。
+
 ### Source Spec v1 已成为统一运行时
 
 新增 `internal/sourceruntime`，直接执行规范化来源，不为 Animeko、Kazumi 或社区规则保留生态专用分支。WEB 流程覆盖标题别名搜索、条目匹配、单/多线路选集、集号校验、direct HLS/HTTP 轻量可读性检查和 M3 browser-sniff；BT 流程复用安全抓取器并把规范化记录转换成同一个 Candidate v1。

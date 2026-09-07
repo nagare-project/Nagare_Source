@@ -9,9 +9,10 @@
 3. 填写真实 `origin.upstream`、上游版本和许可证。无法确认再分发权限时不要提交规则正文。
 4. 设置最小的 `allowed_hosts`、请求限制和解析正则。不要用通配符允许无关域名。
 5. 在 `fixtures/` 加入脱敏后的最小请求、响应和期望 Candidate。fixture 必须可离线测试且不得过期。
-6. 运行校验和测试。
+6. 重新生成 fixture 健康报告，再运行校验和测试。
 
 ```sh
+make health
 go run ./cmd/nagare-source validate
 go test ./...
 ```
@@ -70,7 +71,7 @@ SOURCE_DATE_EPOCH=1767323045 \
   --bt-records fixtures/bt-index/releases.jsonl
 ```
 
-构建会把 YAML 规范化为 `dist/sources/<id>.json`，按 ID 排序生成 `dist/index.json`，并把规范化 BT JSONL 生成 `dist/bt-index.sqlite.zst`。每份来源和压缩 BT 索引都在 index 中带 SHA-256。相同输入、版本和时间戳必须产生逐字节一致的输出；BT 输入契约和数据库布局见 [BT Index v1](bt-index-v1.md)。
+构建会把 YAML 规范化为 `dist/sources/<id>.json`，按 ID 排序生成 `dist/index.json`，把规范化 BT JSONL 生成 `dist/bt-index.sqlite.zst`，并复制已经校验的 `reports/health.json` 为 `dist/health.json`。每份来源、压缩 BT 索引和健康报告都在 index 中带 SHA-256。相同输入、版本和时间戳必须产生逐字节一致的输出；BT 输入契约和数据库布局见 [BT Index v1](bt-index-v1.md)，健康页、tag release 与许可证门禁见 [社区发布与来源健康](community-publishing.md)。
 
 ## PR 检查表
 
@@ -79,4 +80,5 @@ SOURCE_DATE_EPOCH=1767323045 \
 - [ ] `allowed_hosts` 和资源限制足够小。
 - [ ] 正常、无匹配和集号不确定路径都有 fixture。
 - [ ] `validate`、`go test ./...` 和可复现构建通过。
+- [ ] `make health` 已更新并校验完整的 fixture 健康报告。
 - [ ] 与已有 Animeko/Kazumi 来源对照过，未创建同站点重复来源。
