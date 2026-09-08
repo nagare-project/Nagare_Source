@@ -1,0 +1,26 @@
+{
+  "schema": "nagare-upstream-approvals/v1",
+  "upstreams": [
+    {
+      "id": "kazumi-rules",
+      "ecosystem": "kazumi",
+      "repository": "https://github.com/Predidit/KazumiRules",
+      "ref": "main",
+      "reviewedRevision": "5fea5eb84768a2290ddedb156583ef20d9b43561",
+      "inputPath": ".",
+      "sourceUrlTemplate": "https://github.com/Predidit/KazumiRules/blob/{revision}/{path}",
+      "stableIdStrategy": "importer-v1",
+      "license": {
+        "spdx": "MIT",
+        "upstreamPath": "LICENSE",
+        "noticePath": "third_party/licenses/KazumiRules-MIT.txt",
+        "noticeSha256": "sha256:89331c2a35f4d73bb9f30dff98c9222971366ab1e46e757cb9a8bb865ed4ee8a"
+      },
+      "redistribution": {
+        "rules": true,
+        "normalizedSources": true,
+        "fixtures": false
+      }
+    }
+  ]
+}

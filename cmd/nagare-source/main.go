@@ -386,7 +386,7 @@ func validate(arguments []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("validated %d sources, %d resolve requests, %d candidates, %d BT record entries, and %d health reports\n", summary.Sources, summary.Requests, summary.Candidates, summary.BTRecords, summary.HealthReports)
+	fmt.Printf("validated %d sources, %d resolve requests, %d candidates, %d BT record entries, %d health reports, and %d upstream approvals\n", summary.Sources, summary.Requests, summary.Candidates, summary.BTRecords, summary.HealthReports, summary.Approvals)
 	return nil
 }
 

@@ -31,6 +31,7 @@ const (
 	CandidateSchemaName  = "candidate-v1.schema.json"
 	IndexSchemaName      = "repository-index-v1.schema.json"
 	HealthSchemaName     = "source-health-v1.schema.json"
+	ApprovalsSchemaName  = "upstream-approvals-v1.schema.json"
 	defaultGeneratedTime = "1970-01-01T00:00:00Z"
 )
 
@@ -68,6 +69,7 @@ type ValidationSummary struct {
 	Candidates    int
 	BTRecords     int
 	HealthReports int
+	Approvals     int
 }
 
 type SourceDocument struct {
@@ -128,7 +130,7 @@ func NewValidator(root string) (*Validator, error) {
 	compiler.Draft = jsonschema.Draft2020
 	compiler.AssertFormat = true
 
-	names := []string{SourceSchemaName, RequestSchemaName, CandidateSchemaName, IndexSchemaName, HealthSchemaName}
+	names := []string{SourceSchemaName, RequestSchemaName, CandidateSchemaName, IndexSchemaName, HealthSchemaName, ApprovalsSchemaName}
 	for _, name := range names {
 		path := filepath.Join(root, "schema", name)
 		data, err := os.ReadFile(path)
@@ -266,7 +268,100 @@ func ValidateRepository(root string) (ValidationSummary, error) {
 		return summary, err
 	}
 	summary.HealthReports = 1
+	approvals, err := validateUpstreamApprovals(root, validator)
+	if err != nil {
+		return summary, err
+	}
+	summary.Approvals = approvals
 	return summary, nil
+}
+
+func validateUpstreamApprovals(root string, validator *Validator) (int, error) {
+	path := filepath.Join(root, "upstreams", "approved.json")
+	value, err := LoadDocument(path)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", relative(root, path), err)
+	}
+	if err := validator.Validate(ApprovalsSchemaName, value); err != nil {
+		return 0, fmt.Errorf("%s: %w", relative(root, path), err)
+	}
+	document := objectValue(value)
+	upstreams := arrayValue(document["upstreams"])
+	previous := ""
+	for _, item := range upstreams {
+		upstream := objectValue(item)
+		id := stringValue(upstream["id"])
+		if previous != "" && id <= previous {
+			return 0, fmt.Errorf("%s: upstream IDs must be unique and sorted", relative(root, path))
+		}
+		previous = id
+		if err := validateApproval(root, upstream); err != nil {
+			return 0, fmt.Errorf("%s: upstream %q: %w", relative(root, path), id, err)
+		}
+	}
+	return len(upstreams), nil
+}
+
+func validateApproval(root string, upstream map[string]any) error {
+	if _, err := safeRepositoryPath(root, stringValue(upstream["inputPath"])); err != nil {
+		return fmt.Errorf("invalid input path: %w", err)
+	}
+	repositoryURL := stringValue(upstream["repository"])
+	parsed, err := url.Parse(repositoryURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return errors.New("repository must be a plain HTTPS URL")
+	}
+	ref := stringValue(upstream["ref"])
+	if strings.Contains(ref, "..") || strings.Contains(ref, "//") || strings.HasSuffix(ref, "/") {
+		return errors.New("ref contains an unsafe path segment")
+	}
+	template := stringValue(upstream["sourceUrlTemplate"])
+	wantPrefix := strings.TrimSuffix(repositoryURL, "/") + "/blob/{revision}/"
+	if !strings.HasPrefix(template, wantPrefix) || strings.Count(template, "{revision}") != 1 || strings.Count(template, "{path}") != 1 || !strings.HasSuffix(template, "{path}") {
+		return errors.New("sourceUrlTemplate must bind the approved repository, revision, and path")
+	}
+	license := objectValue(upstream["license"])
+	if _, err := safeRepositoryPath(root, stringValue(license["upstreamPath"])); err != nil {
+		return fmt.Errorf("invalid upstream license path: %w", err)
+	}
+	noticePath := stringValue(license["noticePath"])
+	absoluteNotice, err := safeRepositoryPath(root, noticePath)
+	if err != nil {
+		return fmt.Errorf("invalid license notice path: %w", err)
+	}
+	info, err := os.Lstat(absoluteNotice)
+	if err != nil {
+		return fmt.Errorf("read license notice: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("license notice must be a regular file")
+	}
+	data, err := os.ReadFile(absoluteNotice)
+	if err != nil {
+		return fmt.Errorf("read license notice: %w", err)
+	}
+	digest := sha256.Sum256(data)
+	actual := "sha256:" + hex.EncodeToString(digest[:])
+	if actual != stringValue(license["noticeSha256"]) {
+		return fmt.Errorf("license notice digest mismatch: got %s", actual)
+	}
+	return nil
+}
+
+func safeRepositoryPath(root, name string) (string, error) {
+	if name == "" || filepath.IsAbs(name) || filepath.Clean(name) != filepath.FromSlash(name) {
+		return "", errors.New("path must be a normalized repository-relative path")
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	absolutePath := filepath.Join(absoluteRoot, filepath.FromSlash(name))
+	relativePath, err := filepath.Rel(absoluteRoot, absolutePath)
+	if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) {
+		return "", errors.New("path escapes the repository")
+	}
+	return absolutePath, nil
 }
 
 func validateHealthReport(root string, validator *Validator, repositorySources []SourceDocument) error {

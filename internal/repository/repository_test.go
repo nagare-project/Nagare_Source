@@ -15,9 +15,45 @@ func TestRepositoryFixturesValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 || summary.HealthReports != 1 {
+	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 || summary.HealthReports != 1 || summary.Approvals != 1 {
 		t.Fatalf("unexpected validation summary: %+v", summary)
 	}
+}
+
+func TestApprovedUpstreamsVerifyLicenseNoticeAndRepositoryBinding(t *testing.T) {
+	root := repositoryRoot(t)
+	validator, err := NewValidator(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, err := validateUpstreamApprovals(root, validator); err != nil || count != 1 {
+		t.Fatalf("committed upstream approval is invalid: count=%d err=%v", count, err)
+	}
+
+	value, err := LoadDocument(filepath.Join(root, "upstreams", "approved.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	upstream := value.(map[string]any)["upstreams"].([]any)[0].(map[string]any)
+	template := upstream["sourceUrlTemplate"]
+	upstream["sourceUrlTemplate"] = "https://attacker.example/blob/{revision}/{path}"
+	if err := validateApproval(root, upstream); err == nil || !strings.Contains(err.Error(), "approved repository") {
+		t.Fatalf("mismatched source template returned unexpected error: %v", err)
+	}
+	upstream["sourceUrlTemplate"] = template
+	license := upstream["license"].(map[string]any)
+	digest := license["noticeSha256"]
+	license["noticeSha256"] = "sha256:" + strings.Repeat("0", 64)
+	if err := validateApproval(root, upstream); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("tampered license digest returned unexpected error: %v", err)
+	}
+	license["noticeSha256"] = digest
+	inputPath := upstream["inputPath"]
+	upstream["inputPath"] = "../outside"
+	if err := validateApproval(root, upstream); err == nil || !strings.Contains(err.Error(), "invalid input path") {
+		t.Fatalf("escaping input path returned unexpected error: %v", err)
+	}
+	upstream["inputPath"] = inputPath
 }
 
 func TestBuildIsDeterministicAndDigestMatches(t *testing.T) {
