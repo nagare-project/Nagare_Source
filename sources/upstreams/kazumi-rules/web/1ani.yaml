@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://anime.d1dm.xyz/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[@class='module-blocklist scroll-box scroll-box-y']
+            type: xpath
+    request:
+        allowed_hosts:
+            - anime.d1dm.xyz
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://anime.d1dm.xyz/
+id: 1ani
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: 1ANI
+origin:
+    digest: sha256:8532fb08d7c6f1b0b5dc135673309005f5bed2cbb3289dd43a7d09fd1bf52a7a
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/1ANI.json
+    version: "1.4"
+resolve:
+    allowed_hosts:
+        - anime.d1dm.xyz
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://anime.d1dm.xyz/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //h3/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //h3/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //h3/a
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[@class='module-search-item']
+        type: xpath
+    request:
+        allowed_hosts:
+            - anime.d1dm.xyz
+        method: GET
+        url: https://anime.d1dm.xyz/vodsearch/-------------.html?wd={{title}}
+    response: html
+tier: 2

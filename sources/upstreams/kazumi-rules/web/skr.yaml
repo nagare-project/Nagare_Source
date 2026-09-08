@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://skr.skr1.cc:666/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //li/a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[@id='playlistbox']
+            type: xpath
+    request:
+        allowed_hosts:
+            - skr.skr1.cc
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://skr.skr1.cc:666/
+id: skr
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: skr
+origin:
+    digest: sha256:6204d227086bcf7929687e7e25ecdc11983eaf50cf99798a5a8d169adfacdac2
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/skr.json
+    version: "0.5"
+resolve:
+    allowed_hosts:
+        - skr.skr1.cc
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://skr.skr1.cc:666/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //div[2]/div/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //div[2]/div/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //div[2]/h4/a/text()
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[2]/div[1]/div[1]/ul//li
+        type: xpath
+    request:
+        allowed_hosts:
+            - skr.skr1.cc
+        method: GET
+        url: https://skr.skr1.cc:666/vodsearch/-------------/?wd={{title}}
+    response: html
+tier: 2

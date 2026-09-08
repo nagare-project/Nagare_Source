@@ -1,0 +1,125 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: true
+episodes:
+    base_url: https://www.sorani.net/
+    lines:
+        episodes:
+            fields:
+                episode_url:
+                    expression: $.episodeOrder
+                    transforms:
+                        - trim
+                    type: jsonpath
+                number:
+                    any:
+                        - expression: $.episodeLabel
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: jsonpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    expression: https://www.sorani.net/anime/mal/{{subject_key}}/episode/{{episode_url}}
+                    type: template
+                title:
+                    expression: $.episodeLabel
+                    transforms:
+                        - trim
+                    type: jsonpath
+            items:
+                expression: $.episodes[*]
+                type: jsonpath
+        fields:
+            channel:
+                any:
+                    - expression: 播放线路{{line_number}}
+                      type: template
+                required: true
+        items:
+            expression: $.data
+            type: jsonpath
+    request:
+        allowed_hosts:
+            - api.sorani.cc
+        method: GET
+        url: https://api.sorani.cc/sorani-cms/api/video/{{subject_key}}
+    response: json
+homepage: https://www.sorani.net/
+id: sorani
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: false
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: sorani
+origin:
+    digest: sha256:a1853853bc4cce46e5885b52e0e6c939d184caa213f31c0e34de524ea0858aa1
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/sorani.json
+    version: "1.0"
+resolve:
+    allowed_hosts:
+        - api.sorani.cc
+        - www.sorani.net
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    request_headers:
+        Referer: https://www.sorani.net/
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.sorani.net/
+    fields:
+        subject_key:
+            expression: $.id
+            transforms:
+                - trim
+            type: jsonpath
+        subject_url:
+            expression: $.id
+            transforms:
+                - trim
+                - absolute_url
+            type: jsonpath
+        title:
+            expression: $.title
+            transforms:
+                - trim
+            type: jsonpath
+    items:
+        expression: $.data.records[*]
+        type: jsonpath
+    request:
+        allowed_hosts:
+            - api.sorani.cc
+        method: GET
+        query:
+            enabled: true
+            keyword: '{{title}}'
+            page: "1"
+            size: "50"
+            sortDesc: false
+            sortMode: latest
+        url: https://api.sorani.cc/sorani-cms/api/video
+    response: json
+tier: 2

@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.cycani.org/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //li/a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //ul[@class='anthology-list-play size']
+            type: xpath
+    request:
+        allowed_hosts:
+            - www.cycani.org
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://www.cycani.org/
+id: ciyuancheng
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: ciyuancheng
+origin:
+    digest: sha256:cb124489d20b5759fb05b86c0f74e54abf0f3d2fe3bf14cdad6621a212d0c843
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/ciyuancheng.json
+    version: "2.0"
+resolve:
+    allowed_hosts:
+        - www.cycani.org
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.cycani.org/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //div/div[2]/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //div/div[2]/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //div/div[2]/a/h3
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[@class='vod-detail style-detail cor4 search-list']
+        type: xpath
+    request:
+        allowed_hosts:
+            - www.cycani.org
+        method: GET
+        url: https://www.cycani.org/search.html?wd={{title}}
+    response: html
+tier: 2

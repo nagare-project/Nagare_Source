@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.ntdm8.com/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //li/a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //*[@id='main0']/div/ul
+            type: xpath
+    request:
+        allowed_hosts:
+            - www.ntdm8.com
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://www.ntdm8.com/
+id: nt
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: NT
+origin:
+    digest: sha256:e7e11e21425041591b294e9cd74e526b1981d7ccb913842c088f2f3d2bd09ade
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/NT.json
+    version: "1.2"
+resolve:
+    allowed_hosts:
+        - www.ntdm8.com
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.ntdm8.com/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //div/div[1]/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //div/div[1]/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //div/div[1]/a
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div/div[2]/div[2]/div/div
+        type: xpath
+    request:
+        allowed_hosts:
+            - www.ntdm8.com
+        method: GET
+        url: https://www.ntdm8.com/search/-------------.html?wd={{title}}&page=1
+    response: html
+tier: 2

@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.ylys.cc/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //*[@id='panel1']/div/div
+            type: xpath
+    request:
+        allowed_hosts:
+            - www.ylys.cc
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://www.ylys.cc/
+id: ylsp
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: ylsp
+origin:
+    digest: sha256:fc616f48aea63c3274256e9a919a80aa2d3583bb1e23c36381b5774b339aec5a
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/ylsp.json
+    version: "1.1"
+resolve:
+    allowed_hosts:
+        - www.ylys.cc
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.ylys.cc/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //a/strong
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[@class='module-card-item-title']
+        type: xpath
+    request:
+        allowed_hosts:
+            - www.ylys.cc
+        method: GET
+        url: https://www.ylys.cc/vodsearch/-------------/?wd={{title}}
+    response: html
+tier: 2

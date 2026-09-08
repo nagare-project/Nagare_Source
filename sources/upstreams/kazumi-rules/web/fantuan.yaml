@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://acgpost.com/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[contains(@class, 'anime-episode')]
+            type: xpath
+    request:
+        allowed_hosts:
+            - acgpost.com
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://acgpost.com/
+id: fantuan
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: Fantuan
+origin:
+    digest: sha256:36fb3b4ec739a12430d1cddd5bd27de2bbf85f4aedc5457761d1fbea31e73beb
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/Fantuan.json
+    version: "2.0"
+resolve:
+    allowed_hosts:
+        - acgpost.com
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://acgpost.com/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //a
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[@class='col anime-card']
+        type: xpath
+    request:
+        allowed_hosts:
+            - acgpost.com
+        method: GET
+        url: https://acgpost.com/search.html?wd={{title}}
+    response: html
+tier: 2

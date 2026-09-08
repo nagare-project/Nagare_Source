@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.fqdm.cc/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //a[contains(@class,'module-play-list-link')]
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[contains(@class,'module-play-list-content')]
+            type: xpath
+    request:
+        allowed_hosts:
+            - www.fqdm.cc
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://www.fqdm.cc/
+id: fqdm
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: FQDM
+origin:
+    digest: sha256:38f1b6245bd5fabc9f1b0cf409929a8b9ef63d983bfdca7d6ec2cb353e9e8e8f
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/FQDM.json
+    version: "2.0"
+resolve:
+    allowed_hosts:
+        - www.fqdm.cc
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.fqdm.cc/
+    fields:
+        subject_key:
+            attribute: href
+            expression: .//div[@class='module-card-item-title']/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: .//div[@class='module-card-item-title']/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: .//div[@class='module-card-item-title']/a
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[@class='module-items module-card-items']/div[contains(@class, 'module-card-item')]
+        type: xpath
+    request:
+        allowed_hosts:
+            - www.fqdm.cc
+        method: GET
+        url: https://www.fqdm.cc/index.php/vod/search/wd/{{title}}.html
+    response: html
+tier: 2
