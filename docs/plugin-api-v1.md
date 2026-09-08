@@ -1,6 +1,6 @@
 # Plugin API v1
 
-Plugin API v1 是 Nagare 与来源运行时之间的 HTTP/JSON 协议。默认监听回环地址；远程部署必须使用 TLS 和部署方提供的认证。协议主版本为 `1`。
+Plugin API v1 是 Nagare 与来源运行时之间的本机 HTTP/JSON 协议。当前进程端和 Nagare 客户端都只接受显式回环 IP，不支持远程插件地址。协议主版本为 `1`。
 
 ## 0. 启动实现
 
@@ -13,7 +13,13 @@ go run ./cmd/nagare-source serve \
   --version dev
 ```
 
-`serve` 在开始监听前校验全部来源，只接受 `127.0.0.0/8` 或 `::1` 的显式 IP；不能用 `localhost`、通配地址或外网地址绕过本地边界。端口设为 `0` 时由系统分配空闲端口，实际 URL 会写到标准输出，便于 Nagare 作为子进程启动并发现入口。需要指定浏览器时使用 `--chrome PATH`。
+`serve` 在开始监听前校验全部来源，只接受 `127.0.0.0/8` 或 `::1` 的显式 IP；不能用 `localhost`、通配地址或外网地址绕过本地边界。端口设为 `0` 时由系统分配空闲端口。监听成功后，stdout 恰好写一行 UTF-8 JSON，然后不再承载其他输出：
+
+```json
+{"event":"ready","protocol":"nagare-plugin-launch/v1","url":"http://127.0.0.1:43127"}
+```
+
+Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验字段与显式回环 URL，再请求 manifest 协商 Plugin API v1。插件的运行诊断应写 stderr，并自行脱敏；Nagare 不把子进程 stderr 复制到普通日志。禁用插件、重新配置或退出 Nagare 时，宿主会取消请求并终止子进程。需要指定浏览器时使用 `--chrome PATH`。
 
 可用 `make selftest-plugin` 执行离线运行时/API 回归。仓库示例域名为 `example.invalid`，因此普通启动只用于协议开发；`example-rss` 的 fixture selfcheck 不访问网络。
 
@@ -160,4 +166,8 @@ Cache-Control: no-store
 
 插件流只负责尽快交付候选，不决定播放器最终选择。Nagare 同时启动 WEB 与 BT 工作；验证通过的高优先级 WEB 候选可以立即起播，BT 继续运行并进入换源列表。客户端排序至少考虑 tier、channel tier、匹配置信度、滚动成功率、解析延迟、分辨率、字幕偏好，以及 BT 的做种数、发布时间和体积。
 
-本仓库实现到进程端的并发 Candidate 流为止。插件生命周期、NDJSON 消费、候选列表、首个在线候选起播、播放器失败后的下一来源/BT 回退和手动换源入口属于 Nagare 客户端仓库的 M4 工作。
+Nagare 客户端只启动用户显式配置的本地插件，不接受任意远程 URL。客户端边读 NDJSON 边更新候选列表；来源 tier 不高于 1 且匹配置信度不低于 0.8 的在线候选可以立即起播，无需等待 `done` 或 BT 查询完成。其余候选按来源 tier、channel tier、匹配置信度、在线/BT、分辨率和 BT 做种数稳定排序。
+
+当前候选同步启动失败，或 mpv 对对应播放 `fileId` 报告 `end-file: error` / 进程异常时，客户端尝试下一在线候选，在线耗尽后进入最佳 BT。正常 EOF、用户停止、播放器退出和手动换源都不触发自动回退。查询可由用户取消，已到达的候选继续保留为手动换源与重试入口；单来源错误按固定分类显示，不阻塞其他来源。
+
+HLS/HTTP URL 与请求头只保存在当前内存会话并直接交给 mpv。候选流响应使用 `Cache-Control: no-store`；播放器状态只暴露不含 URL/请求头的 `fileId` 和错误原因，界面与普通日志不得显示临时凭据。
