@@ -31,7 +31,8 @@ make health
 
 当前工具会执行：
 
-- 五份 JSON Schema 的语法和数据校验，包括来源健康报告。
+- 六份 JSON Schema 的语法和数据校验，包括来源健康报告与批准上游清单。
+- 批准上游的仓库绑定、路径边界、再分发范围和许可证 notice 摘要。
 - 来源 ID 唯一性、ID/文件名一致性和 kind/目录一致性。
 - 模板语法、变量存在性和 RE2 正则编译。
 - HTTP(S) URL、字面私网/回环地址、`allowed_hosts` 和敏感固定 header 检查。
@@ -71,11 +72,12 @@ SOURCE_DATE_EPOCH=1767323045 \
   --bt-records fixtures/bt-index/releases.jsonl
 ```
 
-构建会把 YAML 规范化为 `dist/sources/<id>.json`，按 ID 排序生成 `dist/index.json`，把规范化 BT JSONL 生成 `dist/bt-index.sqlite.zst`，并复制已经校验的 `reports/health.json` 为 `dist/health.json`。每份来源、压缩 BT 索引和健康报告都在 index 中带 SHA-256。相同输入、版本和时间戳必须产生逐字节一致的输出；BT 输入契约和数据库布局见 [BT Index v1](bt-index-v1.md)，健康页、tag release 与许可证门禁见 [社区发布与来源健康](community-publishing.md)。
+构建会把 YAML 规范化为 `dist/sources/<id>.json`，按 ID 排序生成 `dist/index.json`，把规范化 BT JSONL 生成 `dist/bt-index.sqlite.zst`，复制已经校验的 `reports/health.json` 为 `dist/health.json`，并把批准上游要求保留的许可证全文放入 `dist/licenses/`。每份来源、压缩 BT 索引和健康报告都在 index 中带 SHA-256。相同输入、版本和时间戳必须产生逐字节一致的输出；BT 输入契约和数据库布局见 [BT Index v1](bt-index-v1.md)，健康页、tag release 与许可证门禁见 [社区发布与来源健康](community-publishing.md)。
 
 ## PR 检查表
 
 - [ ] 来源、版本、许可证和上游地址准确。
+- [ ] 上游派生规则已列入批准清单，许可证 notice 与允许的再分发范围准确。
 - [ ] 没有脚本、密钥、Cookie 或临时 URL。
 - [ ] `allowed_hosts` 和资源限制足够小。
 - [ ] 正常、无匹配和集号不确定路径都有 fixture。

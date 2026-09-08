@@ -4,6 +4,14 @@
 
 ## [Unreleased] - 2026-09-08
 
+### M5 首个获准生产上游与定时同步
+
+新增 `nagare-upstream-approvals/v1` 清单与仓库校验。每个批准条目固定上游仓库、分支、已审核 revision、输入与专属输出目录、稳定 ID 策略、许可证路径和 SHA-256，以及规则、规范化来源和 fixture 各自的再分发范围。本地保存许可证全文，release 同步携带对应 notice；仓库绑定、路径穿越、notice 篡改或未列入清单的上游都会失败关闭。实现提交为 `9c6a70c`。
+
+KazumiRules 已依据上游 MIT License 成为第一个批准条目。`sync-approved` 只接受 remote 匹配、工作区干净、HEAD 为已审核 revision 后代且许可证摘要未变化的 Git checkout；导入结果先在临时目录生成，和全部现有来源共同校验后才原子替换专属目录，失败时恢复旧快照。每周 workflow 只使用 `contents: read`，执行同步、fixture 健康报告、完整测试和仓库校验后上传 14 天审核产物，不推分支或创建 PR。实现提交为 `c52e7e0`。
+
+首次快照固定到 KazumiRules `5fea5eb84768a2290ddedb156583ef20d9b43561`，确定性转换 84 条 Source Spec；12 条保持启用，72 条因上游弃用、交互验证、固定凭据或其他保守诊断保持禁用。健康报告现在覆盖仓库全部 86 条来源。生成快照提交为 `8b61abd`。Animeko `ani-subs` 根仓库截至本次核对仍未声明许可证，因此不进入批准清单，也不会被同步或再分发。
+
 ### M5 来源健康报告与静态页
 
 新增 `nagare-source health` 和 Source Health v1 Schema。fixture 模式复用离线响应，network 模式执行受既有公网边界约束的真实自检；单来源并发受限、panic 相互隔离，结果按 ID 稳定排序并原子写入 JSON 与经过 HTML 转义的静态页。仓库校验现在要求健康报告完整覆盖全部来源、汇总计数准确，Plugin API `/v1/sources` 同时读取已发布状态。
@@ -16,11 +24,11 @@
 
 新增语义化 tag release workflow。`vX.Y.Z` tag 使用对应 commit 时间构建发布目录，再以固定排序、时间、所有者和无 gzip 时间戳的方式生成 tarball 与 `SHA256SUMS`；重复运行会更新同名 release 产物。实现提交为 `70c82d5`。
 
-### M5 贡献模板与剩余门禁
+### M5 贡献模板与门禁基础
 
 新增通过 Source Schema、安全 lint 和测试持续验证的 WEB、BT 与 overlay 模板，以及 PR 模板中的许可证、fixture、网络边界和健康报告检查项。实现提交为 `9698f1b`。
 
-生产上游规则正文和自动同步仍受逐项许可证及再分发批准阻塞；现有兼容性测试不能代替授权。Source Spec 目前只有 v1，破坏性迁移器也必须等待一个真实目标 schema 和确定字段映射，避免现在生成会猜测未来语义的空壳工具。Nagare 客户端的完整接入仍需要目标应用明确接受第三方在线来源桥接范围。M5 已完成可在本仓库内独立验收的发布基础设施，但不把上述外部前置条件伪装成已经完成。
+本阶段先建立模板与门禁，没有用兼容性测试代替许可证批准。后续 `9c6a70c`、`c52e7e0` 与 `8b61abd` 已把首个明确采用 MIT 的 KazumiRules 上游纳入机器清单、只读定时同步和生产快照；没有许可证的上游仍然失败关闭。Source Spec 目前只有 v1，破坏性迁移器继续等待真实目标 schema 和确定字段映射，避免生成会猜测未来语义的空壳工具。
 
 ### Source Spec v1 已成为统一运行时
 

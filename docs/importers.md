@@ -61,7 +61,19 @@ Kazumi 通常把剧集地址解析到播放页，因此统一映射为 `browser_
 - `adBlocker` 与 `useLegacyParser` 是 Kazumi WebView 实现细节，只输出明确 warning。
 - `delimited` API 章节格式目前无法由 Source Spec v1 collection 无损表示，输出 `unsupported_rule` error；当前官方规则使用的 API 章节格式为 `nested`。
 
-合成 fixture 覆盖 XPath 与 API 两条路径；兼容性验收还会对公开 KazumiRules 工作副本执行两次离线转换并比较产物。该检查不请求来源站点，也不把上游规则正文复制进本仓库。
+合成 fixture 覆盖 XPath 与 API 两条路径；兼容性验收还会对公开 KazumiRules 工作副本执行两次离线转换并比较产物。仓库当前的生产快照只通过下述获准上游流程更新，普通兼容性检查仍不请求来源站点或写入正式来源目录。
+
+## 获准上游同步
+
+`sync-approved` 不接受调用者自行填写 upstream URL 或许可证；这些值只能来自已通过仓库校验的 `upstreams/approved.json`：
+
+```sh
+go run ./cmd/nagare-source sync-approved \
+  --id kazumi-rules \
+  --checkout upstream/KazumiRules
+```
+
+checkout 必须是批准仓库的干净 Git 工作区，HEAD 必须等于或延续已审核 revision，许可证文件必须与登记 notice 的 SHA-256 相同。生成文件写入该条目唯一拥有的 `sources/upstreams/<id>/`，先完成全仓库 Source Schema、安全 lint 与重复 ID 检查，再原子替换旧快照。该命令不访问规则所指向的资源站点。
 
 ## Nagare schema 1
 

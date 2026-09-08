@@ -51,7 +51,19 @@ JSON 遵守 `nagare-source-health/v1`，按来源 ID 稳定排序，并汇总以
 
 只有明确获准使用和再分发的上游规则才能进入自动同步清单。批准至少需要记录：上游仓库与具体路径、许可证表达式、可再分发范围、稳定规则 ID，以及导入结果允许提交哪些 fixture 或衍生文件。
 
-当前仓库没有已批准的生产上游清单，因此不会加入一个能够下载并自动提交第三方规则正文的空壳定时任务。现有 importer 和 overlay 已能在批准后执行确定性转换；在此之前，兼容性测试结果不能代替许可证批准。
+批准清单位于 `upstreams/approved.json`，遵守 `nagare-upstream-approvals/v1`。仓库校验除 JSON Schema 外还会检查 ID 排序、仓库与 `sourceUrlTemplate` 绑定、规范化相对路径、本地许可证 notice 的 SHA-256，以及每个上游独占的 `sources/upstreams/<id>` 输出目录。release 会把允许分发规范化来源的 notice 复制到 `dist/licenses/`。
+
+首个批准条目是采用 MIT License 的 KazumiRules。同步前先取得其干净 Git checkout，再运行：
+
+```sh
+go run ./cmd/nagare-source sync-approved \
+  --id kazumi-rules \
+  --checkout /path/to/KazumiRules
+```
+
+命令验证 checkout 的 remote、HEAD 是否延续已审核 revision，以及上游 `LICENSE` 是否仍与批准摘要相同。通过后使用实际 commit SHA 生成不可变的 `origin.upstream`，在临时目录完成导入，再和仓库其他来源共同校验并原子替换该上游的专属目录。上游历史重写、许可证变化、脏工作区、路径逃逸、重复 ID 或无效规则都不会留下部分结果。
+
+`.github/workflows/sync-upstreams.yml` 每周及手动执行同一流程，刷新确定性的 fixture 健康报告并运行完整测试。workflow 只有 `contents: read`，结果作为保留 14 天的 artifact 交给维护者审核；它不会自动提交、推送分支或创建 PR。Animeko `ani-subs` 当前没有仓库级许可证声明，因此不在批准清单中；公开可读或转换兼容都不能代替再分发授权。
 
 ## 破坏性 schema 迁移
 

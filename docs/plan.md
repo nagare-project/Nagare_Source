@@ -437,7 +437,7 @@ Nagare 现有磁力 YAML 映射为 `kind: bt`，保留请求模板、XML/JSON �
 
 验收：社区只维护一份 Source Spec，发布流程自动产生 Nagare 可用产物。
 
-当前状态：贡献指南与持续校验模板、Source Health v1、定时网络健康页 workflow、带健康摘要的确定性仓库产物和语义化 tag release workflow 已完成。生产上游自动同步等待逐项许可证与再分发批准；破坏性迁移工具等待新 schema 版本及确定的字段映射，不能在只有 v1 时猜测未来迁移语义。
+当前状态：当前 v1 范围已完成。贡献指南与持续校验模板、Source Health v1、定时网络健康页、确定性仓库产物和语义化 tag release 均已交付。上游批准清单会校验仓库、revision、路径、再分发范围和许可证 notice；首个 MIT KazumiRules 快照包含 84 条生产 Source Spec，每周只读 workflow 会重新导入、测试并上传审核产物。没有许可证的 Animeko `ani-subs` 继续排除。破坏性迁移工具是未来出现新 schema 后的条件工作；在只有 v1、没有目标字段映射时不生成伪迁移器，也不阻塞当前版本验收。
 
 ## 14. 完成标准
 
