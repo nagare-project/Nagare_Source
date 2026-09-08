@@ -28,7 +28,7 @@ func NewChrome(options ChromeOptions) *ChromeBrowser {
 	return &ChromeBrowser{options: options}
 }
 
-func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest, emit func(NetworkEvent)) error {
+func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest, emit func(NetworkEvent)) (resultErr error) {
 	if request.policy == nil {
 		return errors.New("browser request is missing its network policy")
 	}
@@ -41,7 +41,11 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 	if err != nil {
 		return fmt.Errorf("create browser profile: %w", err)
 	}
-	defer os.RemoveAll(profile)
+	defer func() {
+		if err := removeBrowserProfile(profile); resultErr == nil && err != nil {
+			resultErr = fmt.Errorf("remove browser profile: %w", err)
+		}
+	}()
 
 	allocatorOptions := append([]chromedp.ExecAllocatorOption(nil), chromedp.DefaultExecAllocatorOptions[:]...)
 	if browser.options.ExecutablePath != "" {
@@ -155,6 +159,23 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 	}
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+func removeBrowserProfile(profile string) error {
+	var lastErr error
+	for attempt := 0; attempt < 20; attempt++ {
+		if err := os.RemoveAll(profile); err != nil {
+			lastErr = err
+		} else if _, err := os.Lstat(profile); os.IsNotExist(err) {
+			return nil
+		} else if err != nil {
+			lastErr = err
+		} else {
+			lastErr = errors.New("profile directory still exists after removal")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return lastErr
 }
 
 func snapshotCookieHeader(callContext, browserContext context.Context, rawURL string) (map[string]string, error) {
