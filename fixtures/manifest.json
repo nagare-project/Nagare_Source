@@ -1,0 +1,8 @@
+{
+  "id": "org.nagare.source.community",
+  "name": "Nagare Community Sources",
+  "version": "0.1.0",
+  "protocolVersions": [1],
+  "sourceSchemaVersions": [1],
+  "capabilities": ["web", "browser_sniff", "bt", "ndjson"]
+}

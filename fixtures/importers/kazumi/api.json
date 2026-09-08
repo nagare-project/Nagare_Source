@@ -1,0 +1,65 @@
+{
+  "api": "8",
+  "type": "anime",
+  "name": "Fixture Kazumi API",
+  "version": "2.0",
+  "muliSources": true,
+  "useWebview": true,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": true,
+  "userAgent": "",
+  "baseURL": "https://api-rule.example.invalid/",
+  "searchURL": "",
+  "searchList": "",
+  "searchName": "",
+  "searchResult": "",
+  "chapterRoads": "",
+  "chapterResult": "",
+  "referer": "https://api-rule.example.invalid/",
+  "searchMode": "api",
+  "chapterMode": "api",
+  "searchApiConfig": {
+    "request": {
+      "method": "POST",
+      "url": "https://api.example.invalid/v1/search",
+      "headers": {
+        "X-Client": "fixture"
+      },
+      "bodyType": "json",
+      "body": {
+        "keyword": "@keyword",
+        "limit": 10
+      }
+    },
+    "listPath": "$.data.items[*]",
+    "namePath": "$.title",
+    "sourcePath": "$.id"
+  },
+  "chapterApiConfig": {
+    "request": {
+      "method": "GET",
+      "url": "https://api.example.invalid/v1/anime/@source"
+    },
+    "format": "nested",
+    "roadsPath": "$.data.lines[*]",
+    "roadNamePath": "$.name",
+    "episodesPath": "$.episodes[*]",
+    "episodeNamePath": "$.label",
+    "episodeUrlPath": "$.slug",
+    "variables": {
+      "seriesSlug": "$.data.slug"
+    },
+    "episodePage": {
+      "url": "https://api-rule.example.invalid/watch/@seriesSlug/@episodeUrl",
+      "query": {
+        "line": "@roadIndex",
+        "episode": "@episodeNumber"
+      }
+    }
+  },
+  "antiCrawlerConfig": {
+    "enabled": false
+  }
+}

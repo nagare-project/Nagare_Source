@@ -1,0 +1,79 @@
+schema: nagare-source/v1
+id: example-rss
+name: Example RSS releases
+kind: bt
+tier: 3
+enabled: true
+
+origin:
+  ecosystem: community
+  upstream: https://bt.example.invalid/feed.xml
+  version: "1"
+  license: MIT
+
+search:
+  request:
+    method: GET
+    url: https://bt.example.invalid/feed.xml
+    query:
+      q: "{{title}}"
+    allowed_hosts:
+      - bt.example.invalid
+  response: rss
+  items:
+    type: xpath
+    expression: //item
+  fields:
+    title:
+      type: xpath
+      expression: ./title/text()
+      transforms:
+        - trim
+    magnet:
+      type: xpath
+      expression: ./link/text()
+      transforms:
+        - trim
+    episode:
+      type: regex
+      expression: "(?:EP?|\\[)[[:space:]]*([0-9]{1,4}(?:\\.[0-9]+)?)"
+      group: 1
+      transforms:
+        - parse_episode
+    info_hash:
+      type: regex
+      expression: "btih:([A-Fa-f0-9]{40}|[A-Za-z2-7]{32})"
+      group: 1
+      transforms:
+        - normalize_infohash
+    published_at:
+      type: xpath
+      expression: ./pubDate/text()
+      transforms:
+        - parse_datetime
+
+resolve:
+  mode: direct
+  transport: magnet
+  url: "{{magnet}}"
+
+defaults:
+  resolution: 1080P
+  subtitle_languages:
+    - zh-Hans
+
+limits:
+  concurrency: 1
+  requests_per_minute: 12
+  timeout_ms: 15000
+  max_response_bytes: 5242880
+  max_redirects: 2
+
+selftest:
+  request:
+    titles:
+      - Example Animation
+    episode: 3
+  expect:
+    min_candidates: 1
+    transport: torrent

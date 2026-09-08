@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.xiyedm.com/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[1]/div[3]/div[2]/div[3]/div[2]//div
+            type: xpath
+    request:
+        allowed_hosts:
+            - www.xiyedm.com
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://www.xiyedm.com/
+id: xy
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: XY
+origin:
+    digest: sha256:7c1e8b8f2715bb81a99a61061dd782fd8260ad0695bd26de4d4471a8e8ae390e
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/XY.json
+    version: "1.0"
+resolve:
+    allowed_hosts:
+        - www.xiyedm.com
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.xiyedm.com/
+    fields:
+        subject_key:
+            attribute: href
+            expression: .
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: .
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //div/div[2]/div[1]
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[1]/div[3]/div[2]/div[3]//a
+        type: xpath
+    request:
+        allowed_hosts:
+            - www.xiyedm.com
+        method: GET
+        url: https://www.xiyedm.com/search/-------------/?os=pc&wd={{title}}
+    response: html
+tier: 2

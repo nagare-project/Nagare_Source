@@ -1,0 +1,126 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://next.xifanacg.com/
+    lines:
+        episodes:
+            fields:
+                episode_url:
+                    expression: $.id
+                    transforms:
+                        - trim
+                    type: jsonpath
+                number:
+                    any:
+                        - expression: $.title
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: jsonpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    expression: https://next.xifanacg.com/anime/{{subject_key}}/play/{{episode_url}}
+                    type: template
+                title:
+                    expression: $.title
+                    transforms:
+                        - trim
+                    type: jsonpath
+            items:
+                expression: $.episodes[*]
+                type: jsonpath
+        fields:
+            channel:
+                any:
+                    - expression: $.name
+                      transforms:
+                        - trim
+                      type: jsonpath
+                    - expression: 播放线路{{line_number}}
+                      type: template
+                required: true
+        items:
+            expression: $.sources[0]
+            type: jsonpath
+    request:
+        allowed_hosts:
+            - rzmsnqblptbceicadbyd.supabase.co
+        body: '{"p_id":"{{subject_key}}"}'
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://rzmsnqblptbceicadbyd.supabase.co/rest/v1/rpc/get_anime_detail
+    response: json
+homepage: https://next.xifanacg.com/
+id: xfdmnext
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: false
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: xfdmnext
+origin:
+    digest: sha256:f374efb1b188cce366199e3fb607e333b86ae996e804a1c3b1f2e75bd6fee089
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/xfdmnext.json
+    version: "1.0"
+resolve:
+    allowed_hosts:
+        - next.xifanacg.com
+        - rzmsnqblptbceicadbyd.supabase.co
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://next.xifanacg.com/
+    fields:
+        subject_key:
+            expression: $.id
+            transforms:
+                - trim
+            type: jsonpath
+        subject_url:
+            expression: $.id
+            transforms:
+                - trim
+                - absolute_url
+            type: jsonpath
+        title:
+            expression: $.title
+            transforms:
+                - trim
+            type: jsonpath
+    items:
+        expression: $[*]
+        type: jsonpath
+    request:
+        allowed_hosts:
+            - rzmsnqblptbceicadbyd.supabase.co
+        body: '{"items_per_page":24,"page_number":1,"search_term":"{{title}}","sort_by":"created_at","sort_order":"desc"}'
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://rzmsnqblptbceicadbyd.supabase.co/rest/v1/rpc/search_animes
+    response: json
+tier: 2

@@ -1,0 +1,24 @@
+{
+  "api": "8",
+  "type": "anime",
+  "name": "Fixture Kazumi XPath",
+  "version": "1.2",
+  "muliSources": true,
+  "useWebview": true,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": false,
+  "userAgent": "Nagare Fixture/1.0",
+  "baseURL": "https://xpath.example.invalid/",
+  "searchURL": "https://xpath.example.invalid/search?keyword=@keyword",
+  "searchList": "//article[@class='result']",
+  "searchName": ".//h2/a",
+  "searchResult": ".//h2/a",
+  "chapterRoads": "//section[@class='playlist']",
+  "chapterResult": ".//a",
+  "referer": "https://xpath.example.invalid/",
+  "antiCrawlerConfig": {
+    "enabled": false
+  }
+}

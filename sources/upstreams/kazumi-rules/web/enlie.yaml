@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://enlienli.link/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div/div[2]/div/div[2]/div/div/div
+            type: xpath
+    request:
+        allowed_hosts:
+            - enlienli.link
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://enlienli.link/
+id: enlie
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: enlie
+origin:
+    digest: sha256:5bb10d8f8b5d13914ff004ea60b40750cd59e48cb673bec3c5035cb76a133ddd
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/enlie.json
+    version: "1.0"
+resolve:
+    allowed_hosts:
+        - enlienli.link
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://enlienli.link/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //div[2]/div[1]/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //div[2]/div[1]/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //div[2]/div[1]/a
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[1]/div[2]/div/div/div[2]/div/div
+        type: xpath
+    request:
+        allowed_hosts:
+            - enlienli.link
+        method: GET
+        url: https://enlienli.link/vod/search.html?wd={{title}}
+    response: html
+tier: 2

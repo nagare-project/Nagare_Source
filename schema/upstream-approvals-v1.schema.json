@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nagare-project/Nagare_Source/main/schema/upstream-approvals-v1.schema.json",
+  "title": "Nagare approved upstream registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "upstreams"],
+  "properties": {
+    "schema": { "const": "nagare-upstream-approvals/v1" },
+    "upstreams": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/upstream" }
+    }
+  },
+  "$defs": {
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "ecosystem", "repository", "ref", "reviewedRevision", "inputPath", "outputPath",
+        "sourceUrlTemplate", "stableIdStrategy", "license", "redistribution"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+        "ecosystem": { "enum": ["animeko", "kazumi", "nagare-v1"] },
+        "repository": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$" },
+        "reviewedRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "inputPath": { "$ref": "#/$defs/relativePath" },
+        "outputPath": { "$ref": "#/$defs/relativePath" },
+        "sourceUrlTemplate": {
+          "type": "string",
+          "format": "uri-template",
+          "pattern": "^https://.*\\{revision\\}.*\\{path\\}$"
+        },
+        "stableIdStrategy": { "const": "importer-v1" },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["spdx", "upstreamPath", "noticePath", "noticeSha256"],
+          "properties": {
+            "spdx": { "type": "string", "pattern": "^[A-Za-z0-9.+-]+$" },
+            "upstreamPath": { "$ref": "#/$defs/relativePath" },
+            "noticePath": { "$ref": "#/$defs/relativePath" },
+            "noticeSha256": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+          }
+        },
+        "redistribution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rules", "normalizedSources", "fixtures"],
+          "properties": {
+            "rules": { "type": "boolean" },
+            "normalizedSources": { "type": "boolean" },
+            "fixtures": { "type": "boolean" }
+          },
+          "anyOf": [
+            { "properties": { "rules": { "const": true } } },
+            { "properties": { "normalizedSources": { "const": true } } },
+            { "properties": { "fixtures": { "const": true } } }
+          ]
+        }
+      }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^/\\\\][^\\\\]*$"
+    }
+  }
+}

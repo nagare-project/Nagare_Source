@@ -1,0 +1,126 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.tvtfun.net/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: $.name
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: jsonpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    expression: https://www.tvtfun.net/video/{{slug}}/play?episode={{episode_index}}&source={{line_index}}
+                    type: template
+                title:
+                    expression: $.name
+                    transforms:
+                        - trim
+                    type: jsonpath
+            items:
+                expression: $.episodes[*]
+                type: jsonpath
+        fields:
+            channel:
+                any:
+                    - expression: $.name
+                      transforms:
+                        - trim
+                      type: jsonpath
+                    - expression: 播放线路{{line_number}}
+                      type: template
+                required: true
+        items:
+            expression: $.data.playSources[*]
+            type: jsonpath
+    request:
+        allowed_hosts:
+            - www.tvtfun.net
+        method: GET
+        url: https://www.tvtfun.net/api/videos/{{subject_key}}
+    response: json
+    variables:
+        slug:
+            expression: $.data.slug
+            scope: document
+            transforms:
+                - trim
+            type: jsonpath
+homepage: https://www.tvtfun.net/
+id: tvtfun
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: TvTFun
+origin:
+    digest: sha256:acc8ebcecf5f06a4a29b569b96fa7b13396120e60aec9e095d20633e6b20a08e
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/TvTFun.json
+    version: "1.1"
+resolve:
+    allowed_hosts:
+        - www.tvtfun.net
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    request_headers:
+        Referer: https://www.tvtfun.net/
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.tvtfun.net/
+    fields:
+        subject_key:
+            expression: $.id
+            transforms:
+                - trim
+            type: jsonpath
+        subject_url:
+            expression: $.id
+            transforms:
+                - trim
+                - absolute_url
+            type: jsonpath
+        title:
+            expression: $.name
+            transforms:
+                - trim
+            type: jsonpath
+    items:
+        expression: $.data.videos[*]
+        type: jsonpath
+    request:
+        allowed_hosts:
+            - www.tvtfun.net
+        method: GET
+        query:
+            pageSize: "5"
+            q: '{{title}}'
+        url: https://www.tvtfun.net/api/videos/search
+    response: json
+tier: 2

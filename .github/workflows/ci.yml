@@ -1,0 +1,39 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go test ./...
+      - run: go run ./cmd/nagare-source validate
+      - name: Verify isolated browser resolver when Chrome is available
+        env:
+          NAGARE_BROWSER_TEST: "1"
+        run: go test ./internal/webresolver -run TestChromeBrowserSniffsEphemeralHLS -v -count=1
+      - name: Verify offline BT source self-test
+        run: >-
+          go run ./cmd/nagare-source crawl-bt
+          --source sources/bt/example-rss.yaml
+          --response-file fixtures/responses/example-rss.xml
+          --selftest
+          --out /tmp/bt-records.jsonl
+      - name: Verify reproducible repository output
+        env:
+          SOURCE_DATE_EPOCH: "1767323045"
+        run: |
+          go run ./cmd/nagare-source build --out /tmp/dist-a --version ci --bt-records /tmp/bt-records.jsonl
+          go run ./cmd/nagare-source build --out /tmp/dist-b --version ci --bt-records /tmp/bt-records.jsonl
+          diff -ru /tmp/dist-a /tmp/dist-b

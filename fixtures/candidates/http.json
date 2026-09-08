@@ -1,0 +1,28 @@
+{
+  "schema": "nagare-candidate/v1",
+  "id": "example-http:400602:3:main",
+  "sourceId": "example-http",
+  "tier": 1,
+  "matchConfidence": 1.0,
+  "match": {
+    "basis": ["subject_id", "title_episode"],
+    "subjectTitle": "葬送的芙莉莲",
+    "episodeNumber": 3,
+    "evidence": "source subject id and parsed episode number both matched"
+  },
+  "transport": {
+    "type": "hls",
+    "url": "https://cdn.example.invalid/episode-03.m3u8",
+    "headers": {
+      "Referer": "https://media.example.invalid/"
+    },
+    "expiresAt": 1788691200000
+  },
+  "metadata": {
+    "resolution": "1080P",
+    "subtitleLanguages": ["zh-Hans"],
+    "channel": "main",
+    "channelTier": 0,
+    "episode": 3
+  }
+}

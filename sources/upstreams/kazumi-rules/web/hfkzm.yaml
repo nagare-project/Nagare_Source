@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://hfkzm.com/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //ul/li/a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[4]/div[1]/div[3]/div[1]/div[2]/div/div[2]//div
+            type: xpath
+    request:
+        allowed_hosts:
+            - hfkzm.com
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://hfkzm.com/
+id: hfkzm
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: hfkzm
+origin:
+    digest: sha256:290779255c196a103bc22cb66dfc873de86d83c572729f0c17454fd29bbac52e
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/hfkzm.json
+    version: "1.1"
+resolve:
+    allowed_hosts:
+        - hfkzm.com
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://hfkzm.com/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //a[2]
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //a[2]
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //a[2]
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[3]/div/div[2]/ul//li
+        type: xpath
+    request:
+        allowed_hosts:
+            - hfkzm.com
+        method: GET
+        url: https://hfkzm.com/search.php?searchword={{title}}
+    response: html
+tier: 2

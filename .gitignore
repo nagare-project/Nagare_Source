@@ -1,0 +1,5 @@
+/dist/
+/_upstream/
+/reports/health.html
+*.tmp
+.DS_Store

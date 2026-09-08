@@ -1,0 +1,3 @@
+{"event":"candidate","candidate":{"schema":"nagare-candidate/v1","id":"example-http:400602:3:main","sourceId":"example-http","tier":1,"matchConfidence":1,"match":{"basis":["subject_id","title_episode"],"episodeNumber":3},"transport":{"type":"hls","url":"https://cdn.example.invalid/episode-03.m3u8"},"metadata":{"resolution":"1080P","episode":3}}}
+{"event":"source_error","sourceId":"unavailable-example","category":"resolve_timeout","message":"source exceeded its configured deadline","retryable":true}
+{"event":"done","queried":2,"succeeded":1,"failed":1,"durationMs":1380}

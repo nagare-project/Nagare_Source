@@ -1,0 +1,80 @@
+schema: nagare-source/v1
+id: template-bt
+name: Replace Me BT
+description: Replace this description with the feed or API scope.
+kind: bt
+tier: 3
+enabled: true
+
+origin:
+  ecosystem: community
+  upstream: https://replace-me.invalid/feed.xml
+  version: "1"
+  license: MIT
+
+search:
+  request:
+    method: GET
+    url: https://replace-me.invalid/feed.xml
+    query:
+      q: "{{title}}"
+    allowed_hosts:
+      - replace-me.invalid
+  response: rss
+  items:
+    type: xpath
+    expression: //item
+  fields:
+    title:
+      type: xpath
+      expression: ./title/text()
+      transforms: [trim]
+    magnet:
+      any:
+        - {type: xpath, expression: ./enclosure/@url}
+        - {type: xpath, expression: ./link/text()}
+      transforms: [trim]
+    episode:
+      type: field
+      expression: title
+      transforms: [parse_episode]
+    info_hash:
+      type: field
+      expression: magnet
+      transforms:
+        - {type: regex, pattern: "(?i)btih:([a-f0-9]{40}|[a-z2-7]{32})", group: 1}
+        - normalize_infohash
+    published_at:
+      type: xpath
+      expression: ./pubDate/text()
+      required: false
+      transforms:
+        - {type: parse_datetime, unit: auto}
+
+resolve:
+  mode: direct
+  transport: magnet
+  url: "{{magnet}}"
+
+defaults:
+  resolution: 1080P
+  subtitle_languages: [zh-Hans]
+
+matching:
+  require_episode: true
+  require_subject: true
+
+limits:
+  concurrency: 1
+  requests_per_minute: 20
+  timeout_ms: 15000
+  max_response_bytes: 5242880
+  max_redirects: 2
+
+selftest:
+  request:
+    titles: [Replace Me Animation]
+    episode: 1
+  expect:
+    min_candidates: 1
+    transport: torrent

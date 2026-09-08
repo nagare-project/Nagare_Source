@@ -1,0 +1,114 @@
+defaults:
+    resolution: 1080P
+    subtitle_languages: []
+enabled: false
+episodes:
+    base_url: https://www.cyfz.vip/
+    lines:
+        episodes:
+            fields:
+                number:
+                    any:
+                        - expression: .
+                          required: false
+                          transforms:
+                            - trim
+                            - parse_episode
+                          type: xpath
+                        - expression: '{{episode_number}}'
+                          transforms:
+                            - parse_episode
+                          type: template
+                    required: true
+                play_url:
+                    attribute: href
+                    expression: .
+                    transforms:
+                        - trim
+                        - absolute_url
+                    type: xpath
+                title:
+                    expression: .
+                    transforms:
+                        - trim
+                    type: xpath
+            items:
+                expression: //li/a
+                type: xpath
+        fields:
+            channel:
+                expression: 播放线路{{line_number}}
+                type: template
+        items:
+            expression: //div[5]/div[2]/div[2]/div/div/ul
+            type: xpath
+    request:
+        allowed_hosts:
+            - www.cyfz.vip
+        method: GET
+        url: '{{subject_url}}'
+    response: html
+homepage: https://www.cyfz.vip/
+id: cyfz
+kind: web
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 20
+    timeout_ms: 15000
+matching:
+    distinguish_channel: true
+    distinguish_subject: true
+    require_episode: true
+    require_subject: true
+name: cyfz
+origin:
+    digest: sha256:f24d620100bb63a9c5387be79439be6bcb91bd1f7e91f7fb63666876371de68e
+    ecosystem: kazumi
+    license: MIT
+    upstream: https://github.com/Predidit/KazumiRules/blob/5fea5eb84768a2290ddedb156583ef20d9b43561/cyfz.json
+    version: "1.0"
+resolve:
+    allowed_hosts:
+        - www.cyfz.vip
+    cookie_policy: source
+    match:
+        include:
+            - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
+    mode: browser_sniff
+    timeout_ms: 15000
+    transport: auto
+    url: '{{play_url}}'
+schema: nagare-source/v1
+search:
+    base_url: https://www.cyfz.vip/
+    fields:
+        subject_key:
+            attribute: href
+            expression: //div[3]/div[1]/div[1]/a
+            transforms:
+                - trim
+            type: xpath
+        subject_url:
+            attribute: href
+            expression: //div[3]/div[1]/div[1]/a
+            transforms:
+                - trim
+                - absolute_url
+            type: xpath
+        title:
+            expression: //div[3]/div[1]/div[1]/a
+            transforms:
+                - trim
+            type: xpath
+    items:
+        expression: //div[4]/div/div[1]/div/div
+        type: xpath
+    request:
+        allowed_hosts:
+            - www.cyfz.vip
+        method: GET
+        url: https://www.cyfz.vip/search.html?wd={{title}}
+    response: html
+tier: 2

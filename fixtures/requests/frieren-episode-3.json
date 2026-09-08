@@ -1,0 +1,27 @@
+{
+  "schema": "nagare-resolve-request/v1",
+  "subject": {
+    "ids": {
+      "bangumi": "400602",
+      "anilist": "154587"
+    },
+    "titles": [
+      "葬送的芙莉莲",
+      "葬送のフリーレン",
+      "Sousou no Frieren"
+    ],
+    "season": 1,
+    "year": 2023
+  },
+  "episode": {
+    "id": "bgm:1172765",
+    "number": "3",
+    "absolute": 3,
+    "airDate": "2023-09-29"
+  },
+  "preferences": {
+    "subtitleLanguages": ["zh-Hans", "zh-Hant"],
+    "maxResolution": "2160P",
+    "preferredTransports": ["hls", "http", "torrent"]
+  }
+}

@@ -1,0 +1,40 @@
+schema: 1
+id: fixture_old
+name: Fixture Legacy Source
+homepage: https://legacy.example.invalid/
+
+request:
+  url: https://legacy.example.invalid/feed.xml?q={{query}}
+  timeout_seconds: 15
+  headers:
+    Accept: application/rss+xml
+
+format: xml
+namespaces:
+  torrent: https://legacy.example.invalid/xmlns/torrent
+items: rss/channel/item
+
+fields:
+  title: title
+  magnet:
+    any:
+      - path: enclosure@url
+      - path: link
+    transforms:
+      - trim
+  size:
+    path: torrent:contentLength
+    transforms:
+      - format_bytes
+  date: pubDate
+  fansub:
+    path: $title
+    transforms:
+      - parse_fansub
+
+capabilities:
+  seeders: false
+  priority: 5
+
+selftest:
+  query: fixture
