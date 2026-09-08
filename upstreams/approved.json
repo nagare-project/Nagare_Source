@@ -8,6 +8,7 @@
       "ref": "main",
       "reviewedRevision": "5fea5eb84768a2290ddedb156583ef20d9b43561",
       "inputPath": ".",
+      "outputPath": "sources/upstreams/kazumi-rules",
       "sourceUrlTemplate": "https://github.com/Predidit/KazumiRules/blob/{revision}/{path}",
       "stableIdStrategy": "importer-v1",
       "license": {

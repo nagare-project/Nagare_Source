@@ -77,6 +77,33 @@ type SourceDocument struct {
 	Document map[string]any
 }
 
+type UpstreamApproval struct {
+	ID                string                 `json:"id"`
+	Ecosystem         string                 `json:"ecosystem"`
+	Repository        string                 `json:"repository"`
+	Ref               string                 `json:"ref"`
+	ReviewedRevision  string                 `json:"reviewedRevision"`
+	InputPath         string                 `json:"inputPath"`
+	OutputPath        string                 `json:"outputPath"`
+	SourceURLTemplate string                 `json:"sourceUrlTemplate"`
+	StableIDStrategy  string                 `json:"stableIdStrategy"`
+	License           UpstreamLicense        `json:"license"`
+	Redistribution    UpstreamRedistribution `json:"redistribution"`
+}
+
+type UpstreamLicense struct {
+	SPDX         string `json:"spdx"`
+	UpstreamPath string `json:"upstreamPath"`
+	NoticePath   string `json:"noticePath"`
+	NoticeSHA256 string `json:"noticeSha256"`
+}
+
+type UpstreamRedistribution struct {
+	Rules             bool `json:"rules"`
+	NormalizedSources bool `json:"normalizedSources"`
+	Fixtures          bool `json:"fixtures"`
+}
+
 type Index struct {
 	Schema               string       `json:"schema"`
 	Version              string       `json:"version"`
@@ -302,9 +329,51 @@ func validateUpstreamApprovals(root string, validator *Validator) (int, error) {
 	return len(upstreams), nil
 }
 
+func ApprovedUpstream(root, id string) (UpstreamApproval, error) {
+	upstreams, err := ApprovedUpstreams(root)
+	if err != nil {
+		return UpstreamApproval{}, err
+	}
+	for _, upstream := range upstreams {
+		if upstream.ID == id {
+			return upstream, nil
+		}
+	}
+	return UpstreamApproval{}, fmt.Errorf("upstream %q is not approved", id)
+}
+
+func ApprovedUpstreams(root string) ([]UpstreamApproval, error) {
+	validator, err := NewValidator(root)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := validateUpstreamApprovals(root, validator); err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filepath.Join(root, "upstreams", "approved.json"))
+	if err != nil {
+		return nil, err
+	}
+	var registry struct {
+		Upstreams []UpstreamApproval `json:"upstreams"`
+	}
+	if err := json.Unmarshal(data, &registry); err != nil {
+		return nil, fmt.Errorf("decode approved upstream registry: %w", err)
+	}
+	return registry.Upstreams, nil
+}
+
 func validateApproval(root string, upstream map[string]any) error {
 	if _, err := safeRepositoryPath(root, stringValue(upstream["inputPath"])); err != nil {
 		return fmt.Errorf("invalid input path: %w", err)
+	}
+	id := stringValue(upstream["id"])
+	outputPath := stringValue(upstream["outputPath"])
+	if _, err := safeRepositoryPath(root, outputPath); err != nil {
+		return fmt.Errorf("invalid output path: %w", err)
+	}
+	if outputPath != "sources/upstreams/"+id {
+		return errors.New("outputPath must be the upstream's dedicated sources/upstreams directory")
 	}
 	repositoryURL := stringValue(upstream["repository"])
 	parsed, err := url.Parse(repositoryURL)
@@ -477,6 +546,10 @@ func build(root, outputDir, version, generatedAt string, btRecords []btindex.Rec
 	if err != nil {
 		return Index{}, err
 	}
+	approvals, err := ApprovedUpstreams(root)
+	if err != nil {
+		return Index{}, err
+	}
 	sources, err := LoadSources(root, validator)
 	if err != nil {
 		return Index{}, err
@@ -515,6 +588,9 @@ func build(root, outputDir, version, generatedAt string, btRecords []btindex.Rec
 	}
 	defer os.RemoveAll(temporary)
 	if err := os.MkdirAll(filepath.Join(temporary, "sources"), 0o755); err != nil {
+		return Index{}, err
+	}
+	if err := copyLicenseNotices(root, temporary, approvals); err != nil {
 		return Index{}, err
 	}
 
@@ -597,6 +673,32 @@ func build(root, outputDir, version, generatedAt string, btRecords []btindex.Rec
 		return Index{}, fmt.Errorf("publish output directory: %w", err)
 	}
 	return index, nil
+}
+
+func copyLicenseNotices(root, output string, approvals []UpstreamApproval) error {
+	seen := map[string]bool{}
+	for _, approval := range approvals {
+		if !approval.Redistribution.NormalizedSources {
+			continue
+		}
+		name := filepath.Base(approval.License.NoticePath)
+		if seen[name] {
+			return fmt.Errorf("duplicate third-party license notice filename %q", name)
+		}
+		seen[name] = true
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(approval.License.NoticePath)))
+		if err != nil {
+			return fmt.Errorf("read third-party license notice for %s: %w", approval.ID, err)
+		}
+		directory := filepath.Join(output, "licenses")
+		if err := os.MkdirAll(directory, 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(directory, name), data, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validateBTRecordSources(sources []SourceDocument, records []btindex.Record) error {

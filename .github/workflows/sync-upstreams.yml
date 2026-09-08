@@ -1,0 +1,64 @@
+name: sync approved upstreams
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-approved-upstreams
+  cancel-in-progress: false
+
+jobs:
+  kazumi-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out Nagare Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate the committed approval gate
+        run: go run ./cmd/nagare-source validate
+      - name: Check out approved Kazumi rules
+        uses: actions/checkout@v4
+        with:
+          repository: Predidit/KazumiRules
+          ref: main
+          path: _upstream/kazumi-rules
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Import the approved upstream
+        run: >-
+          go run ./cmd/nagare-source sync-approved
+          --id kazumi-rules
+          --checkout _upstream/kazumi-rules
+      - name: Refresh deterministic fixture health
+        run: |
+          UPSTREAM_TIME="$(git -C _upstream/kazumi-rules show -s --format=%cI HEAD)"
+          go run ./cmd/nagare-source health \
+            --mode fixture \
+            --generated-at "$UPSTREAM_TIME" \
+            --out reports/health.json \
+            --html reports/health.html \
+            --concurrency 6
+      - name: Test and validate synchronized sources
+        run: |
+          go test ./...
+          go run ./cmd/nagare-source validate
+      - name: Upload synchronized sources for maintainer review
+        uses: actions/upload-artifact@v4
+        with:
+          name: approved-kazumi-sources-${{ github.run_id }}
+          path: |
+            sources/upstreams/kazumi-rules
+            reports/health.json
+          if-no-files-found: error
+          retention-days: 14

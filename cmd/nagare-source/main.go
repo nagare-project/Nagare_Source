@@ -31,6 +31,8 @@ func main() {
 		err = build(os.Args[2:])
 	case "import":
 		err = importSources(os.Args[2:])
+	case "sync-approved":
+		err = syncApproved(os.Args[2:])
 	case "crawl-bt":
 		err = crawlBT(os.Args[2:])
 	case "serve":
@@ -437,6 +439,7 @@ Usage:
   nagare-source serve [--root PATH] [--listen 127.0.0.1:7788] [--version VERSION] [--chrome PATH]
   nagare-source health [--root PATH] [--mode fixture|network] [--out FILE] [--html FILE]
   nagare-source build [--root PATH] [--out PATH] [--version VERSION] [--generated-at RFC3339] [--bt-records FILE]
+  nagare-source sync-approved --id ID --checkout PATH [--root PATH]
   nagare-source import animeko --input FILE --upstream URL --license SPDX [--out PATH]
   nagare-source import kazumi --input FILE --upstream URL --license SPDX [--out PATH]
   nagare-source import nagare-v1 --input FILE --upstream URL --license SPDX [--out PATH]`)

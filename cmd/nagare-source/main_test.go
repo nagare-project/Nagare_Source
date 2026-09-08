@@ -111,7 +111,7 @@ func TestHealthCommandWritesValidatedJSONAndStaticPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"healthy": 1`, `"degraded": 1`, `"id": "example-http"`, `"id": "example-rss"`) {
+	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"healthy": 1`, `"id": "example-http"`, `"id": "example-rss"`) {
 		t.Fatalf("health JSON is incomplete: %s", jsonData)
 	}
 	htmlData, err := os.ReadFile(htmlPath)

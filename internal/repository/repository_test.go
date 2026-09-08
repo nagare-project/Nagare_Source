@@ -15,7 +15,7 @@ func TestRepositoryFixturesValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if summary.Sources != 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 || summary.HealthReports != 1 || summary.Approvals != 1 {
+	if summary.Sources < 2 || summary.Requests != 1 || summary.Candidates != 2 || summary.BTRecords != 1 || summary.HealthReports != 1 || summary.Approvals != 1 {
 		t.Fatalf("unexpected validation summary: %+v", summary)
 	}
 }
@@ -54,6 +54,13 @@ func TestApprovedUpstreamsVerifyLicenseNoticeAndRepositoryBinding(t *testing.T) 
 		t.Fatalf("escaping input path returned unexpected error: %v", err)
 	}
 	upstream["inputPath"] = inputPath
+	approval, err := ApprovedUpstream(root, "kazumi-rules")
+	if err != nil || approval.Ecosystem != "kazumi" || approval.OutputPath != "sources/upstreams/kazumi-rules" {
+		t.Fatalf("approved upstream lookup failed: approval=%+v err=%v", approval, err)
+	}
+	if _, err := ApprovedUpstream(root, "missing"); err == nil || !strings.Contains(err.Error(), "not approved") {
+		t.Fatalf("missing approval returned unexpected error: %v", err)
+	}
 }
 
 func TestBuildIsDeterministicAndDigestMatches(t *testing.T) {
@@ -103,11 +110,41 @@ func TestBuildIsDeterministicAndDigestMatches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(firstHealth, secondHealth) || index.Artifacts.Health.Digest != sha256Digest(firstHealth) || index.Artifacts.Health.GeneratedAt != "2026-09-07T00:00:00Z" {
+	var committedHealth struct {
+		GeneratedAt string `json:"generatedAt"`
+	}
+	if err := json.Unmarshal(firstHealth, &committedHealth); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(firstHealth, secondHealth) || index.Artifacts.Health.Digest != sha256Digest(firstHealth) || index.Artifacts.Health.GeneratedAt != committedHealth.GeneratedAt {
 		t.Fatalf("health artifact is not deterministic or indexed: %+v", index.Artifacts.Health)
 	}
-	if len(index.Sources) != 2 || index.Sources[0].ID != "example-http" || index.Sources[1].ID != "example-rss" {
-		t.Fatalf("sources are not sorted by id: %+v", index.Sources)
+	if len(index.Sources) < 2 {
+		t.Fatalf("release omitted repository sources: %+v", index.Sources)
+	}
+	foundExamples := map[string]bool{}
+	for position, source := range index.Sources {
+		if position > 0 && index.Sources[position-1].ID >= source.ID {
+			t.Fatalf("sources are not sorted by id: %s before %s", index.Sources[position-1].ID, source.ID)
+		}
+		if source.ID == "example-http" || source.ID == "example-rss" {
+			foundExamples[source.ID] = true
+		}
+	}
+	if !foundExamples["example-http"] || !foundExamples["example-rss"] {
+		t.Fatalf("release omitted example sources: %+v", foundExamples)
+	}
+	noticeName := "KazumiRules-MIT.txt"
+	builtNotice, err := os.ReadFile(filepath.Join(first, "licenses", noticeName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	committedNotice, err := os.ReadFile(filepath.Join(root, "third_party", "licenses", noticeName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(builtNotice, committedNotice) {
+		t.Fatal("release bundle changed the approved upstream license notice")
 	}
 	for _, entry := range index.Sources {
 		data, err := os.ReadFile(filepath.Join(first, filepath.FromSlash(entry.Path)))

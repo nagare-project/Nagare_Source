@@ -17,7 +17,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id", "ecosystem", "repository", "ref", "reviewedRevision", "inputPath",
+        "id", "ecosystem", "repository", "ref", "reviewedRevision", "inputPath", "outputPath",
         "sourceUrlTemplate", "stableIdStrategy", "license", "redistribution"
       ],
       "properties": {
@@ -27,6 +27,7 @@
         "ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$" },
         "reviewedRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
         "inputPath": { "$ref": "#/$defs/relativePath" },
+        "outputPath": { "$ref": "#/$defs/relativePath" },
         "sourceUrlTemplate": {
           "type": "string",
           "format": "uri-template",
