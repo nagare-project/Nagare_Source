@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -8,6 +10,23 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestWritePluginReadyIsMachineReadable(t *testing.T) {
+	var output bytes.Buffer
+	if err := writePluginReady(&output, "127.0.0.1:43127"); err != nil {
+		t.Fatal(err)
+	}
+	var event pluginReadyEvent
+	if err := json.Unmarshal(output.Bytes(), &event); err != nil {
+		t.Fatal(err)
+	}
+	if event.Event != "ready" || event.Protocol != "nagare-plugin-launch/v1" || event.URL != "http://127.0.0.1:43127" {
+		t.Fatalf("unexpected ready event: %+v", event)
+	}
+	if bytes.Count(output.Bytes(), []byte{'\n'}) != 1 {
+		t.Fatalf("ready output must be exactly one JSON line: %q", output.String())
+	}
+}
 
 func TestReadImportInputsRecursivelyAndDeterministically(t *testing.T) {
 	directory := t.TempDir()

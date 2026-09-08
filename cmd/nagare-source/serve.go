@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -66,7 +67,9 @@ func serve(arguments []string) error {
 	go func() {
 		serverErrors <- server.Serve(listener)
 	}()
-	fmt.Printf("serving Plugin API v1 on http://%s\n", listener.Addr().String())
+	if err := writePluginReady(os.Stdout, listener.Addr().String()); err != nil {
+		return err
+	}
 	select {
 	case <-shutdownContext.Done():
 		deadline, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -85,6 +88,20 @@ func serve(arguments []string) error {
 		}
 		return err
 	}
+}
+
+type pluginReadyEvent struct {
+	Event    string `json:"event"`
+	Protocol string `json:"protocol"`
+	URL      string `json:"url"`
+}
+
+// writePluginReady 是 serve 写入 stdout 的唯一条记录。Nagare 读取这条
+// 有界 JSON 来发现系统分配的回环端口，诊断信息仍保留在 stderr。
+func writePluginReady(output io.Writer, address string) error {
+	return json.NewEncoder(output).Encode(pluginReadyEvent{
+		Event: "ready", Protocol: "nagare-plugin-launch/v1", URL: "http://" + address,
+	})
 }
 
 func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, error) {
