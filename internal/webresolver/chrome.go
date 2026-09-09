@@ -9,9 +9,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
@@ -29,10 +31,10 @@ func NewChrome(options ChromeOptions) *ChromeBrowser {
 }
 
 func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest, emit func(NetworkEvent)) (resultErr error) {
-	if request.policy == nil {
+	if request.policy == nil || request.egressPolicy == nil {
 		return errors.New("browser request is missing its network policy")
 	}
-	proxy, err := startOutboundProxy(request.policy, request.MaxBytes)
+	proxy, err := startOutboundProxy(request.egressPolicy, request.MaxBytes)
 	if err != nil {
 		return fmt.Errorf("start browser proxy: %w", err)
 	}
@@ -62,6 +64,8 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 		chromedp.Flag("disable-component-update", true),
 		chromedp.Flag("disable-domain-reliability", true),
 		chromedp.Flag("disable-quic", true),
+		chromedp.Flag("autoplay-policy", "no-user-gesture-required"),
+		chromedp.Flag("mute-audio", true),
 		chromedp.Flag("force-webrtc-ip-handling-policy", "disable_non_proxied_udp"),
 		chromedp.Flag("webrtc-ip-handling-policy", "disable_non_proxied_udp"),
 	)
@@ -76,6 +80,8 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 		chromedp.WithErrorf(discardLog),
 	)
 	defer cancelBrowser()
+	var mainFrameID atomic.Value
+	mainFrameID.Store("")
 
 	chromedp.ListenTarget(browserContext, func(value any) {
 		switch event := value.(type) {
@@ -91,6 +97,7 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 				ResourceType: string(event.Type),
 				Headers:      networkHeaders(event.Request.Headers),
 				Redirect:     event.RedirectResponse != nil,
+				TopLevel:     string(event.FrameID) == mainFrameID.Load().(string),
 			}
 			networkEvent.Navigate = func(callContext context.Context, targetURL string) error {
 				if err := callContext.Err(); err != nil {
@@ -113,6 +120,7 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 				ResourceType: string(event.Type),
 				Status:       int(event.Response.Status),
 				MIMEType:     event.Response.MimeType,
+				TopLevel:     string(event.FrameID) == mainFrameID.Load().(string),
 			}
 			if request.CookiePolicy == "source" {
 				networkEvent.SnapshotHeaders = func(callContext context.Context, playbackURL string) (map[string]string, error) {
@@ -121,12 +129,24 @@ func (browser *ChromeBrowser) Browse(ctx context.Context, request BrowseRequest,
 			}
 			emit(networkEvent)
 		case *network.EventLoadingFailed:
-			emit(NetworkEvent{Kind: EventFailed, RequestID: string(event.RequestID), ErrorText: sanitizeBrowserError(event.ErrorText)})
+			emit(NetworkEvent{Kind: EventFailed, RequestID: string(event.RequestID), ResourceType: string(event.Type), ErrorText: sanitizeBrowserError(event.ErrorText)})
 		}
 	})
 
 	actions := chromedp.Tasks{
 		network.Enable(),
+		page.Enable(),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			frameTree, err := page.GetFrameTree().Do(ctx)
+			if err != nil {
+				return err
+			}
+			if frameTree == nil || frameTree.Frame == nil {
+				return errors.New("browser main frame is unavailable")
+			}
+			mainFrameID.Store(string(frameTree.Frame.ID))
+			return nil
+		}),
 		network.SetCacheDisabled(true),
 		network.ClearBrowserCache(),
 		network.ClearBrowserCookies(),

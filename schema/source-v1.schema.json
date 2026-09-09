@@ -305,6 +305,7 @@
               "minItems": 1,
               "items": { "type": "string", "minLength": 1 }
             },
+            "allow_verified_media": { "type": "boolean", "default": false },
             "exclude": {
               "type": "array",
               "items": { "type": "string", "minLength": 1 }

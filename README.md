@@ -94,6 +94,7 @@ go run ./cmd/nagare-source sync-approved \
 - [BT Index v1](docs/bt-index-v1.md)
 - [BT Source Crawler](docs/bt-crawler.md)
 - [Browser Resolver Runtime](docs/browser-runtime.md)
+- [原生 WebView 解析实验](docs/native-webview-resolver.md)
 - [社区发布与健康页](docs/community-publishing.md)
 - [开发日志](docs/changelog.md)
 - [完整实施计划](docs/plan.md)

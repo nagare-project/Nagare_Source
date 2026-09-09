@@ -51,7 +51,7 @@ go run ./cmd/nagare-source import kazumi \
 
 XPath 模式会转换搜索 URL、GET/表单 POST、作品列表、作品名称与链接、多线路和剧集链接；`@keyword` 映射为 `{{title}}`，相对链接通过 `base_url` 规范化。API 模式支持 GET/POST、query、headers、JSON/form body、受限 JSONPath、嵌套线路、整份章节响应变量和播放页模板。`@source`、`@episodeUrl`、从零开始的线路/剧集索引和从一开始的序号都转换为 Source Spec 的显式模板变量。
 
-Kazumi 通常把剧集地址解析到播放页，因此统一映射为 `browser_sniff`。规则只提供站点与 API host，不能证明最终 CDN 范围，导入结果会输出 `overlay_required`，由审核后的 overlay 扩充 `resolve.allowed_hosts`。Referer、User-Agent 和来源 Cookie 会话语义被保留。
+Kazumi 通常把剧集地址解析到播放页，因此统一映射为 `browser_sniff`。规则只提供站点与 API host，导入结果会输出 `overlay_required`，由审核后的 overlay 补充需要的顶层播放器导航域名。iframe 依赖及 CDN 由运行时继续执行公网校验。新导入结果设置 `match.allow_verified_media: true`，允许支持该能力的解析器接受经过实际响应验证的无扩展名媒体；已有快照按来源实测逐步更新。Referer、User-Agent 和来源 Cookie 会话语义被保留。
 
 安全相关行为采用保守策略：
 

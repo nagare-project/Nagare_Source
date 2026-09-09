@@ -213,6 +213,8 @@ resolve:
 
 `browser_sniff` 必须给出 `match.include` 和 `allowed_hosts`。匹配第一个候选并不代表成功：运行时仍要确认传输类型、允许域名、集号依据，并在返回前做轻量可读性验证。
 
+可选 `match.allow_verified_media: true` 允许已通过实际 HTTP 2xx 与 video/HLS 内容验证的地址绕过 include URL 模式，适用于无文件扩展名的 CDN。exclude 始终生效；只有明确提供验证证据的运行时支持该能力，普通页面 URL 或未经验证的 DOM 提示不能使用它。入口和顶层页面受 `allowed_hosts` 约束，嵌套页面依赖及最终媒体仍需通过运行时的公网地址校验。
+
 传输映射为：
 
 - `hls` → Candidate `transport.type: hls`。

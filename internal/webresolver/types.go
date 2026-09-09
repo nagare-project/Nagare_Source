@@ -49,6 +49,8 @@ type NetworkEvent struct {
 	MIMEType        string
 	Headers         map[string]string
 	Redirect        bool
+	TopLevel        bool
+	VerifiedMedia   bool
 	ErrorText       string
 	Navigate        func(context.Context, string) error
 	SnapshotHeaders func(context.Context, string) (map[string]string, error)
@@ -63,7 +65,8 @@ type BrowseRequest struct {
 	MaxRedirects int
 	MaxBytes     int64
 
-	policy *urlPolicy
+	policy       *urlPolicy
+	egressPolicy *urlPolicy
 }
 
 type Browser interface {

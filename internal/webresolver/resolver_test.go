@@ -132,7 +132,7 @@ func TestResolveUsesNamedMediaCaptureAndCookieSnapshot(t *testing.T) {
 
 func TestResolveRejectsCrossBoundaryRedirect(t *testing.T) {
 	browser := &scriptedBrowser{scripts: [][]NetworkEvent{{{
-		Kind: EventRequest, RequestID: "redirect", URL: "http://127.0.0.1/admin?token=secret", ResourceType: "Document", Redirect: true,
+		Kind: EventRequest, RequestID: "redirect", URL: "http://127.0.0.1/admin?token=secret", ResourceType: "Document", Redirect: true, TopLevel: true,
 	}}}}
 	_, err := New(browser).Resolve(context.Background(), browserSource(500), map[string]string{
 		"play_url": "https://203.0.113.10/watch/3",
@@ -141,6 +141,42 @@ func TestResolveRejectsCrossBoundaryRedirect(t *testing.T) {
 	if strings.Contains(err.Error(), "token") {
 		t.Fatalf("error leaked redirect query: %v", err)
 	}
+}
+
+func TestResolveAcceptsPublicMediaCDNOutsideNavigationHosts(t *testing.T) {
+	browser := &scriptedBrowser{scripts: [][]NetworkEvent{{
+		{Kind: EventRequest, RequestID: "media", URL: "https://198.51.100.20/video/episode.m3u8", ResourceType: "Media"},
+		{Kind: EventResponse, RequestID: "media", URL: "https://198.51.100.20/video/episode.m3u8", ResourceType: "Media", Status: 200, MIMEType: "application/vnd.apple.mpegurl"},
+	}}}
+	media, err := New(browser).Resolve(context.Background(), browserSource(500), map[string]string{
+		"play_url": "https://203.0.113.10/watch/3",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if media.URL != "https://198.51.100.20/video/episode.m3u8" || media.Transport != "hls" {
+		t.Fatalf("public CDN media was not accepted: %+v", media)
+	}
+}
+
+func TestResolveRejectsPrivateMediaDestinationOutsideNavigationHosts(t *testing.T) {
+	browser := &scriptedBrowser{scripts: [][]NetworkEvent{{
+		{Kind: EventResponse, RequestID: "media", URL: "http://127.0.0.1/video/episode.m3u8", ResourceType: "Media", Status: 200, MIMEType: "application/vnd.apple.mpegurl"},
+	}}}
+	_, err := New(browser).Resolve(context.Background(), browserSource(500), map[string]string{
+		"play_url": "https://203.0.113.10/watch/3",
+	})
+	assertCategory(t, err, CategoryUnsafeRedirect)
+}
+
+func TestResolveRejectsPublicDocumentOutsideNavigationHosts(t *testing.T) {
+	browser := &scriptedBrowser{scripts: [][]NetworkEvent{{{
+		Kind: EventRequest, RequestID: "document", URL: "https://198.51.100.20/landing", ResourceType: "Document", TopLevel: true,
+	}}}}
+	_, err := New(browser).Resolve(context.Background(), browserSource(500), map[string]string{
+		"play_url": "https://203.0.113.10/watch/3",
+	})
+	assertCategory(t, err, CategoryUnsafeRedirect)
 }
 
 func TestResolveTimeoutAndCancellationAreDistinct(t *testing.T) {
@@ -169,6 +205,30 @@ func TestResolveRequiresCompleteTemplateAndSuccessfulResponse(t *testing.T) {
 		"play_url": "https://203.0.113.10/watch/3",
 	})
 	assertCategory(t, err, CategoryBrowserBlocked)
+}
+
+func TestVerifiedMediaStillRequiresOptInAndHonorsExclusions(t *testing.T) {
+	for _, tc := range []struct {
+		name                                 string
+		allowed, verified, excluded, success bool
+	}{
+		{"verified", true, true, false, true}, {"no opt in", false, true, false, false},
+		{"unverified", true, false, false, false}, {"excluded", true, true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := browserSource(100)
+			match := object(object(source["resolve"])["match"])
+			match["allow_verified_media"] = tc.allowed
+			if tc.excluded {
+				match["exclude"] = []any{`/asset$`}
+			}
+			backend := &scriptedBrowser{scripts: [][]NetworkEvent{{{Kind: EventResponse, URL: "https://198.51.100.20/asset", Status: 206, MIMEType: "video/mp4", VerifiedMedia: tc.verified}}}}
+			_, err := New(backend).Resolve(context.Background(), source, map[string]string{"play_url": "https://203.0.113.10/watch/1"})
+			if (err == nil) != tc.success {
+				t.Fatalf("accepted=%t want=%t error=%v", err == nil, tc.success, err)
+			}
+		})
+	}
 }
 
 func browserSource(timeout int) map[string]any {
@@ -290,6 +350,9 @@ func TestDetectTransportRejectsConfiguredTypeMismatch(t *testing.T) {
 	}
 	if got := detectTransport("auto", "https://203.0.113.1/play?id=3", "application/x-mpegURL"); got != "hls" {
 		t.Fatalf("MIME-based HLS detection returned %q", got)
+	}
+	if got := detectTransport("auto", "https://203.0.113.1/player?url=https://cdn.example/video.m3u8", "text/html"); got != "" {
+		t.Fatalf("HTML player page was accepted as media: %q", got)
 	}
 }
 

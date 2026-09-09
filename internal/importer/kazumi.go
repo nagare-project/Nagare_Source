@@ -154,7 +154,7 @@ func importKazumiRule(id string, entry map[string]any, canonical []byte, options
 		"mode":          "browser_sniff",
 		"transport":     "auto",
 		"url":           "{{play_url}}",
-		"match":         map[string]any{"include": []any{defaultVideoPattern}},
+		"match":         map[string]any{"include": []any{defaultVideoPattern}, "allow_verified_media": true},
 		"allowed_hosts": stringsToAny(allowedHosts),
 		"cookie_policy": "source",
 		"timeout_ms":    15000,
@@ -192,7 +192,7 @@ func importKazumiRule(id string, entry map[string]any, canonical []byte, options
 		"limits": defaultLimits(1, 20, 15000),
 	}
 	diagnostics = append(diagnostics,
-		Diagnostic{Severity: "warning", Category: "overlay_required", Path: "baseURL", Message: "browser_sniff allowlist contains only rule request hosts; review and add stable CDN hosts with an overlay"},
+		Diagnostic{Severity: "warning", Category: "overlay_required", Path: "baseURL", Message: "browser_sniff navigation allowlist contains only rule request hosts; review any required top-level player hosts with an overlay"},
 		Diagnostic{Severity: "warning", Category: "selftest_missing", Path: "name", Message: "Kazumi rules do not carry a stable self-test title; add one with an overlay"},
 	)
 

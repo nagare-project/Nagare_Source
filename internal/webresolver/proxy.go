@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type outboundProxy struct {
 	mu          sync.Mutex
 	connections map[net.Conn]bool
 	violation   error
+	requests    atomic.Uint64
 }
 
 func startOutboundProxy(policy *urlPolicy, maxBytes int64) (*outboundProxy, error) {
@@ -77,6 +79,7 @@ func (proxy *outboundProxy) recordViolation(err error) {
 }
 
 func (proxy *outboundProxy) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	proxy.requests.Add(1)
 	if request.Method == http.MethodConnect {
 		proxy.serveConnect(writer, request)
 		return
@@ -130,7 +133,9 @@ func (proxy *outboundProxy) serveConnect(writer http.ResponseWriter, request *ht
 			})
 		}
 		go func() {
-			_, _ = io.Copy(upstream, client)
+			// A client may pipeline tunnel bytes after CONNECT. Preserve bytes
+			// already buffered by net/http when the connection is hijacked.
+			_, _ = io.Copy(upstream, buffered)
 			closeBoth()
 		}()
 		_, _ = io.Copy(client, upstream)

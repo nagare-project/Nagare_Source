@@ -239,6 +239,45 @@ func TestRequestIDsCannotOverrideReservedTemplateVariables(t *testing.T) {
 	}
 }
 
+func TestChooseSubjectDistinguishesCJKContinuationTitles(t *testing.T) {
+	season := 4
+	year := 2026
+	rows := []map[string]string{
+		{"title": "关于我转生变成史莱姆这档事第四季", "subject_url": "/season-4"},
+		{"title": "关于我转生变成史莱姆这档事第二季", "subject_url": "/season-2"},
+		{"title": "关于我转生变成史莱姆这档事", "subject_url": "/season-1"},
+	}
+	selected, confidence, _ := chooseSubject(rows, Subject{
+		Titles: []string{"关于我转生变成史莱姆这档事 第四季", "転生したらスライムだった件 第4期", "That Time I Got Reincarnated as a Slime Season 4"},
+		Season: &season,
+		Year:   &year,
+	})
+	if selected == nil || selected["subject_url"] != "/season-4" || confidence != 1 {
+		t.Fatalf("continuation title selected incorrectly: selected=%+v confidence=%v", selected, confidence)
+	}
+}
+
+func TestChooseSubjectRejectsBaseTitleForLaterSeason(t *testing.T) {
+	season := 4
+	selected, _, _ := chooseSubject([]map[string]string{
+		{"title": "关于我转生变成史莱姆这档事", "subject_url": "/season-1"},
+		{"title": "关于我转生变成史莱姆这档事第二季", "subject_url": "/season-2"},
+	}, Subject{Titles: []string{"关于我转生变成史莱姆这档事 第四季"}, Season: &season})
+	if selected != nil {
+		t.Fatalf("later season fell back to a different installment: %+v", selected)
+	}
+}
+
+func TestChooseSubjectRejectsConflictingYear(t *testing.T) {
+	year := 2026
+	selected, _, _ := chooseSubject([]map[string]string{
+		{"title": "Example Animation", "year": "2018", "subject_url": "/old"},
+	}, Subject{Titles: []string{"Example Animation"}, Year: &year})
+	if selected != nil {
+		t.Fatalf("conflicting release year was accepted: %+v", selected)
+	}
+}
+
 func TestTemplateDoesNotReinterpretReplacementText(t *testing.T) {
 	value, err := render("before {{title}} after", func(string) (string, error) {
 		return "{{title}}", nil
