@@ -74,6 +74,7 @@ resolve:
         - www.7sefun.top
     cookie_policy: source
     match:
+        allow_verified_media: true
         include:
             - (?i)(?:https?://[^\s"']+\.(?:m3u8|mp4|mkv)(?:[?#][^\s"']*)?|https?://[^\s"']*(?:akamaized|bilivideo\.com)[^\s"']*)
     mode: browser_sniff

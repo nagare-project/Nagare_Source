@@ -2,7 +2,21 @@
 
 ---
 
-## [Unreleased] - 2026-09-08
+## [Unreleased] - 2026-09-09
+
+### 原生 WebView 解析实验与续作匹配修复
+
+新增 macOS WKWebView helper 与 Go Browser 适配器，使用独立非持久化会话、跨 iframe 媒体探测、最多两个同时解析的会话，以及经安全代理执行的有界 Range 可读性验证。只有显式设置 `NAGARE_SOURCE_NATIVE_WEBVIEW=1` 才启用；构建入口为 `make native-helper`。macOS 14.5 上 HTTPS 已观测到 CONNECT 代理请求，普通 HTTP 页面未可靠经过该配置，因此实验通道拒绝 HTTP 入口，并在页面加载前安装 HTTP/WebSocket 等网络请求阻断规则。正式默认仍为 Chrome。
+
+新增 `resolve.match.allow_verified_media`：经实际响应确认的 video/HLS 可以接受无扩展名或未列入通用 URL 正则的 CDN 地址，仍执行 exclude 与公网校验。Kazumi 新导入结果保留此能力，当前生产快照只更新已经实测的 7sefun。播放器 Referer 仅采用来源明确配置，避免把 iframe 地址误作为 Referer 触发 CDN 的 HTTP 404；Cookie 按目标域名、路径、有效期和 Secure 属性筛选，跨 host 重定向清除凭据。
+
+续作匹配忽略中日韩标题中的排版空格，并识别中文/日文季期及英文 Season；明确季数或年份冲突时拒绝匹配，后续季不再通过基础标题的子串匹配回退到第一季。真实搜索已选择《关于我转生变成史莱姆这档事第四季》第 1 集，原生插件流程返回 `206 video/mp4` 的 HTTP 候选，一次测量约 10.8 秒。此结果证明搜索、选集、解析和入口可读性；Nagare 内实际起播及完整播放尚未验收。
+
+代理修复 CONNECT 后已被 HTTP 服务缓冲的隧道数据丢失问题，增加管线化 CONNECT 回归。探索结论、限制与后续验收见 [原生解析方案](native-webview-resolver.md)。
+
+### Kazumi 来源的跨域媒体 CDN
+
+浏览器解析现在把来源声明的 `allowed_hosts` 用于入口与顶层页面导航，同时允许隔离 profile 访问通过公网 DNS 校验的页面依赖、嵌套播放器 iframe 和媒体 CDN；最终仍只返回匹配规则、HTTP 2xx、具有媒体路径或 MIME 类型且不指向回环、私网、链路本地或 RFC 6598 地址的响应。此前导入的 Kazumi 规则只知道播放站域名，独立播放器和 CDN 不在其中，这是跨域来源超时的原因之一；搜索失败、页面加载及请求头错误还需分别诊断。新增回归覆盖跨域公网 CDN、跨域顶层导航拒绝、私网媒体拒绝和 HTML 播放器误判。
 
 ### 浏览器临时 profile 清理确定性
 

@@ -14,6 +14,7 @@ type urlPolicy struct {
 	allowed      []string
 	resolver     ipResolver
 	allowPrivate bool
+	allowAnyHost bool
 }
 
 func newURLPolicy(allowed []string, resolver ipResolver, allowPrivate bool) (*urlPolicy, error) {
@@ -43,6 +44,15 @@ func newURLPolicy(allowed []string, resolver ipResolver, allowPrivate bool) (*ur
 		}
 	}
 	return &urlPolicy{allowed: patterns, resolver: resolver, allowPrivate: allowPrivate}, nil
+}
+
+// newPublicURLPolicy 供隔离浏览器加载页面依赖与媒体 CDN。它不限制公网 host，
+// 但继续执行协议、凭据、DNS 固定与私网地址检查。页面导航仍使用来源声明的严格策略。
+func newPublicURLPolicy(resolver ipResolver, allowPrivate bool) *urlPolicy {
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
+	return &urlPolicy{resolver: resolver, allowPrivate: allowPrivate, allowAnyHost: true}
 }
 
 func (policy *urlPolicy) validateURL(ctx context.Context, raw string) (*url.URL, []net.IP, error) {
@@ -119,6 +129,9 @@ func (policy *urlPolicy) resolveHost(ctx context.Context, host string) ([]net.IP
 }
 
 func (policy *urlPolicy) hostAllowed(host string) bool {
+	if policy.allowAnyHost {
+		return true
+	}
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 	for _, pattern := range policy.allowed {
 		if host == pattern {

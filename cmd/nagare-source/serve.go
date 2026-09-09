@@ -129,7 +129,11 @@ func loadSourceRunners(root, chromePath string) ([]sourceruntime.Runner, error) 
 	if err != nil {
 		return nil, err
 	}
-	browser := webresolver.New(webresolver.NewChrome(webresolver.ChromeOptions{ExecutablePath: chromePath}))
+	var browserBackend webresolver.Browser = webresolver.NewChrome(webresolver.ChromeOptions{ExecutablePath: chromePath})
+	if helperPath := webresolver.FindNativeWebViewHelper(root); os.Getenv("NAGARE_SOURCE_NATIVE_WEBVIEW") == "1" && helperPath != "" {
+		browserBackend = webresolver.NewNativeWebView(webresolver.NativeWebViewOptions{ExecutablePath: helperPath, MaxSessions: 2})
+	}
+	browser := webresolver.New(browserBackend)
 	runners := make([]sourceruntime.Runner, 0, len(sources))
 	for _, source := range sources {
 		runners = append(runners, sourceruntime.NewSpecRunner(source.Document, sourceruntime.RunnerOptions{

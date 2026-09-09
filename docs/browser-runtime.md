@@ -1,5 +1,7 @@
 # Browser Resolver Runtime
 
+macOS 的实验原生通道、实测结果和当前限制见 [原生 WebView 解析方案](native-webview-resolver.md)。只有显式设置 `NAGARE_SOURCE_NATIVE_WEBVIEW=1` 才会选择已构建的 helper；以下 Chrome 流程仍是默认行为。
+
 Browser Resolver Runtime 执行 Source Spec v1 的 `resolve.mode: browser_sniff`。它只接收已经由搜索和选集阶段生成的 `play_url` 等变量，返回一个经网络响应确认可读的 HLS/HTTP 媒体入口；不把最终 URL、Cookie 或浏览器 profile 写入仓库和长期缓存。
 
 ## 执行流程
@@ -9,16 +11,19 @@ Browser Resolver Runtime 执行 Source Spec v1 的 `resolve.mode: browser_sniff`
 3. 为单次解析创建独立的 Chrome profile 与本地出站代理。
 4. 注入规则允许的 Referer、User-Agent 和固定偏好 Cookie。
 5. 监听 Chrome DevTools Network 事件；`nested_include` 命中时在同一浏览器会话和总 deadline 内继续解析嵌套播放页。
-6. 只接受 HTTP 2xx 响应且匹配 `include`、不匹配 `exclude` 的 URL；规则声明 `capture_group` 时，以对应的命名或数字分组作为媒体 URL 并再次校验边界。
+6. 只接受 HTTP 2xx 响应且匹配 `include`、不匹配 `exclude` 的 URL；规则声明 `capture_group` 时，以对应的命名或数字分组作为媒体 URL 并再次校验公网边界。
 7. 使用扩展名与 MIME 类型确认 HLS/HTTP transport；配置类型与实际响应冲突时继续等待其他候选。
 8. 取消浏览器上下文，关闭代理连接并删除临时 profile，然后才返回媒体入口。
+
+`resolve.match.allow_verified_media: true` 允许经过独立 Range 请求确认 MIME 为视频或内容为 HLS 的媒体绕过 URL include 模式。此能力目前由原生适配器提供；exclude 模式始终生效，HTML/JSON 页面不作为媒体接受。未声明此字段的规则维持原匹配要求。
 
 ## 网络边界
 
 Chrome 的全部 HTTP/HTTPS 流量被强制送入仅监听回环地址的临时代理。代理不使用环境代理，并执行以下检查：
 
 - 仅允许 `http` 与 `https`，拒绝 URL credentials。
-- host 必须匹配精确或 `*.` 子域 allowlist；通配符不匹配根域。
+- 入口与页面级导航的 host 必须匹配精确或 `*.` 子域 allowlist；通配符不匹配根域。
+- 页面依赖、嵌套播放器 iframe 和媒体 CDN 可以访问其他公网 host；只有匹配规则且收到 HTTP 2xx 响应的媒体地址能够返回，顶层页面跳转仍不得越过 allowlist。
 - DNS 结果在代理侧校验并按已验证 IP 直接拨号，避免浏览器二次解析造成 DNS rebinding。
 - 拒绝回环、私网、链路本地、组播、未指定地址和 RFC 6598 shared address space。
 - HTTPS 使用 CONNECT 到已固定的允许 IP；会话结束时主动关闭所有 tunnel。

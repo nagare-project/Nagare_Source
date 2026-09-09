@@ -15,11 +15,12 @@ import (
 var sourceTemplatePattern = regexp.MustCompile(`\{\{\s*([a-z][a-z0-9_]*)\s*\}\}`)
 
 type matchRules struct {
-	include      []*regexp.Regexp
-	exclude      []*regexp.Regexp
-	nested       []*regexp.Regexp
-	captureIndex int
-	captureName  string
+	include            []*regexp.Regexp
+	exclude            []*regexp.Regexp
+	nested             []*regexp.Regexp
+	captureIndex       int
+	captureName        string
+	allowVerifiedMedia bool
 }
 
 func (runtime *Runtime) Resolve(ctx context.Context, source map[string]any, variables map[string]string) (Media, error) {
@@ -59,6 +60,7 @@ func (runtime *Runtime) Resolve(ctx context.Context, source map[string]any, vari
 		}
 		return Media{}, wrapError(CategoryUnsafeRedirect, false, "initial browser URL violates network policy", err)
 	}
+	egressPolicy := newPublicURLPolicy(runtime.resolver, runtime.allowPrivate)
 	rules, err := compileMatchRules(object(resolve["match"]))
 	if err != nil {
 		return Media{}, wrapError(CategoryResolveFailed, false, "browser match rules are invalid", err)
@@ -84,6 +86,7 @@ func (runtime *Runtime) Resolve(ctx context.Context, source map[string]any, vari
 		MaxRedirects: integer(object(source["limits"])["max_redirects"], 3),
 		MaxBytes:     int64(integer(object(source["limits"])["max_response_bytes"], 5*1024*1024)),
 		policy:       policy,
+		egressPolicy: egressPolicy,
 	}
 
 	currentURL := entryURL
@@ -127,6 +130,7 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 	defer cancelSession()
 
 	requestHeaders := map[string]map[string]string{}
+	requestURLs := map[string]string{}
 	redirects := 0
 	nestedNavigations := 0
 	currentPageURL := request.URL
@@ -150,6 +154,13 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 			}
 			return Media{}, "", browserFailure("navigation or network error", err)
 		case event := <-events:
+			if event.Kind == EventRequest && event.RequestID != "" && event.URL != "" {
+				requestURLs[event.RequestID] = event.URL
+			}
+			if event.Kind == EventFailed {
+				runtime.logf("browser request failed: host=%s resource=%s error=%s", mediaHost(requestURLs[event.RequestID]), event.ResourceType, event.ErrorText)
+				continue
+			}
 			if event.RequestID != "" && len(event.Headers) > 0 {
 				requestHeaders[event.RequestID] = mergeHeaders(requestHeaders[event.RequestID], event.Headers)
 			}
@@ -164,15 +175,20 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 			if event.URL == "" {
 				continue
 			}
-			if _, _, err := request.policy.validateURL(ctx, event.URL); err != nil {
-				if event.Redirect || event.ResourceType == "Document" {
-					cancelSession()
-					waitBrowser(done)
-					return Media{}, "", wrapError(CategoryUnsafeRedirect, false, "browser navigation crossed its network boundary", err)
-				}
-				continue
+			_, _, boundaryErr := request.policy.validateURL(ctx, event.URL)
+			withinSourceBoundary := boundaryErr == nil
+			if event.Kind == EventResponse && event.Status >= 200 && event.Status < 300 {
+				runtime.logf("browser response observed: host=%s resource=%s mime=%s source_boundary=%t", mediaHost(event.URL), event.ResourceType, event.MIMEType, withinSourceBoundary)
+			}
+			if !withinSourceBoundary && event.ResourceType == "Document" && event.TopLevel {
+				cancelSession()
+				waitBrowser(done)
+				return Media{}, "", wrapError(CategoryUnsafeRedirect, false, "browser navigation crossed its network boundary", boundaryErr)
 			}
 			if event.Kind == EventRequest && rules.matchesNested(event.URL) && !rules.matchesMedia(event.URL) {
+				if !withinSourceBoundary {
+					continue
+				}
 				if event.ResourceType == "Document" {
 					if event.URL != currentPageURL {
 						nestedNavigations++
@@ -219,10 +235,23 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 				return Media{}, event.URL, nil
 			}
 			mediaURL, matched := rules.mediaURL(event.URL)
+			if !matched && event.VerifiedMedia && rules.allowVerifiedMedia {
+				matched = true
+				for _, pattern := range rules.exclude {
+					if pattern.MatchString(event.URL) {
+						matched = false
+					}
+				}
+				mediaURL = event.URL
+			}
 			if event.Kind != EventResponse || event.Status < 200 || event.Status >= 300 || !matched {
 				continue
 			}
-			if _, _, err := request.policy.validateURL(ctx, mediaURL); err != nil {
+			mediaPolicy := request.egressPolicy
+			if mediaPolicy == nil {
+				mediaPolicy = request.policy
+			}
+			if _, _, err := mediaPolicy.validateURL(ctx, mediaURL); err != nil {
 				cancelSession()
 				waitBrowser(done)
 				return Media{}, "", wrapError(CategoryUnsafeRedirect, false, "matched media URL crossed its network boundary", err)
@@ -231,7 +260,10 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 			if actualTransport == "" {
 				continue
 			}
-			headers := mergeHeaders(request.Headers, sourceCookieHeaders(request))
+			headers := mergeHeaders(nil, request.Headers)
+			if mediaHost(mediaURL) == mediaHost(request.URL) {
+				headers = mergeHeaders(headers, sourceCookieHeaders(request))
+			}
 			headers = mergeHeaders(headers, requestHeaders[event.RequestID])
 			if request.CookiePolicy == "source" && event.SnapshotHeaders != nil {
 				if snapshot, snapshotErr := event.SnapshotHeaders(ctx, mediaURL); snapshotErr == nil {
@@ -277,6 +309,7 @@ func compileMatchRules(match map[string]any) (matchRules, error) {
 		return matchRules{}, err
 	}
 	rules := matchRules{include: include, exclude: exclude, nested: nested, captureIndex: -1}
+	rules.allowVerifiedMedia, _ = match["allow_verified_media"].(bool)
 	switch capture := match["capture_group"].(type) {
 	case nil:
 	case string:
@@ -376,7 +409,13 @@ func detectTransport(configured, raw, mime string) string {
 	parsed, _ := url.Parse(raw)
 	path := strings.ToLower(parsed.Path)
 	mime = strings.ToLower(mime)
+	if strings.Contains(mime, "text/html") || strings.Contains(mime, "application/json") {
+		return ""
+	}
 	isHLS := strings.HasSuffix(path, ".m3u8") || strings.Contains(mime, "mpegurl")
+	isHTTPMedia := strings.HasPrefix(mime, "video/") || strings.HasPrefix(mime, "audio/") ||
+		strings.Contains(mime, "octet-stream") || strings.HasSuffix(path, ".mp4") ||
+		strings.HasSuffix(path, ".mkv") || strings.HasSuffix(path, ".webm") || strings.HasSuffix(path, ".m4v")
 	switch configured {
 	case "hls":
 		if !isHLS {
@@ -384,7 +423,7 @@ func detectTransport(configured, raw, mime string) string {
 		}
 		return "hls"
 	case "http":
-		if isHLS {
+		if isHLS || !isHTTPMedia {
 			return ""
 		}
 		return "http"
@@ -392,7 +431,10 @@ func detectTransport(configured, raw, mime string) string {
 	if isHLS {
 		return "hls"
 	}
-	return "http"
+	if isHTTPMedia {
+		return "http"
+	}
+	return ""
 }
 
 func renderTemplate(template string, variables map[string]string) (string, error) {

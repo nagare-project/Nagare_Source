@@ -1,4 +1,4 @@
-.PHONY: check test selftest-bt selftest-browser selftest-plugin health build clean
+.PHONY: check test selftest-bt selftest-browser selftest-plugin native-helper health build clean
 
 VERSION ?= dev
 GENERATED_AT ?=
@@ -17,6 +17,10 @@ selftest-browser:
 
 selftest-plugin:
 	go test ./internal/sourceruntime ./internal/pluginapi ./cmd/nagare-source -count=1
+
+native-helper:
+	mkdir -p bin
+	clang -fobjc-arc -fblocks -framework Cocoa -framework WebKit native/macos/main.m -o bin/nagare-source-wk
 
 health:
 	go run ./cmd/nagare-source health --mode fixture --out reports/health.json --html reports/health.html
