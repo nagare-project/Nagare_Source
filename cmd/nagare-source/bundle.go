@@ -31,6 +31,13 @@ func bundle(arguments []string) error {
 	if *profile != "bt" {
 		return fmt.Errorf("unsupported bundle profile %q; only bt is supported", *profile)
 	}
+	// health/validate 把相对路径解析到各自的 --root 下；这里统一成绝对路径，
+	// 否则相对的 --out（CI 里就是）会被拼到 bundle 根目录下面去。
+	absoluteOutput, err := filepath.Abs(*output)
+	if err != nil {
+		return err
+	}
+	*output = absoluteOutput
 	if entries, err := os.ReadDir(*output); err == nil && len(entries) > 0 {
 		return fmt.Errorf("output directory %s is not empty", *output)
 	}
