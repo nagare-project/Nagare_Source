@@ -1,0 +1,17 @@
+schema: nagare-source-overlay/v1
+source_id: baimao
+origin_digest: sha256:b2b373695c7e3f7b607cb699bf67a222c3e2e5acbc66be67a3db5e9f3ec6a7d2
+reason: 2026-09-10 旧站 301 至 bmmdmm.com；新站搜索页保留作品列表结构，使用明确的新域名而不放宽跨域导航。
+patch:
+  homepage: https://www.bmmdmm.com/
+  search:
+    base_url: https://www.bmmdmm.com/
+    request:
+      url: https://www.bmmdmm.com/s_all?ex=1&kw={{title}}
+      allowed_hosts: [www.bmmdmm.com]
+  episodes:
+    base_url: https://www.bmmdmm.com/
+    request:
+      allowed_hosts: [www.bmmdmm.com]
+  resolve:
+    allowed_hosts: [www.bmmdmm.com]

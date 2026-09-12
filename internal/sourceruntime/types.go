@@ -34,6 +34,9 @@ type Preferences struct {
 	SubtitleLanguages   []string `json:"subtitleLanguages,omitempty"`
 	MaxResolution       string   `json:"maxResolution,omitempty"`
 	PreferredTransports []string `json:"preferredTransports,omitempty"`
+	// Transports 是允许列表：非空时只运行能产出这些 transport 的来源。
+	// 客户端拿它做「只要 BT」这类快路径，跳过整队浏览器嗅探。
+	Transports []string `json:"transports,omitempty"`
 }
 
 type Candidate struct {

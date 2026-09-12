@@ -1,4 +1,4 @@
-.PHONY: check test selftest-bt selftest-browser selftest-plugin native-helper health build clean
+.PHONY: check test selftest-bt selftest-browser selftest-plugin native-helper health build bundle package clean
 
 VERSION ?= dev
 GENERATED_AT ?=
@@ -24,6 +24,12 @@ native-helper:
 
 health:
 	go run ./cmd/nagare-source health --mode fixture --out reports/health.json --html reports/health.html
+
+bundle:
+	go run ./cmd/nagare-source bundle --out dist-bundle --profile bt
+
+package:
+	CGO_ENABLED=0 ./scripts/release/package.sh "$(VERSION)" dist-plugin
 
 build:
 	go run ./cmd/nagare-source build --version "$(VERSION)" --bt-records fixtures/bt-index/releases.jsonl $(if $(GENERATED_AT),--generated-at "$(GENERATED_AT)",)

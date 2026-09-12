@@ -106,8 +106,9 @@ func TestManifestSourcesHealthAndProtocolNegotiation(t *testing.T) {
 }
 
 func TestSourcesApplyPersistedHealthStatus(t *testing.T) {
+	// 用仓库健康报告里一条真实的 degraded 来源：example-http 已默认禁用，报告里是 disabled。
 	handler := testHandler(t, []sourceruntime.Runner{
-		&fakeRunner{source: source("example-http", "web", true)},
+		&fakeRunner{source: source("7sefun", "web", true)},
 	})
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/sources", nil))
@@ -155,6 +156,41 @@ func TestCandidatesStreamsFastResultsErrorsAndDone(t *testing.T) {
 	done := events[3]
 	if done["event"] != "done" || done["queried"] != float64(3) || done["succeeded"] != float64(2) || done["failed"] != float64(1) {
 		t.Fatalf("invalid final counters: %v", done)
+	}
+}
+
+// preferences.transports 是允许列表：只要 torrent 时，web 来源根本不启动，
+// 「只要 BT」的快路径不用陪整队浏览器嗅探等到超时。
+func TestCandidatesTransportsAllowlistSkipsOtherSources(t *testing.T) {
+	requestBody, err := os.ReadFile("../../fixtures/requests/frieren-episode-3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var request map[string]any
+	if err := json.Unmarshal(requestBody, &request); err != nil {
+		t.Fatal(err)
+	}
+	request["preferences"] = map[string]any{"transports": []string{"torrent"}}
+	body, _ := json.Marshal(request)
+	btCandidate := validCandidate("bt-only:0123456789abcdef0123456789abcdef01234567", "bt-only", "torrent")
+	handler := testHandler(t, []sourceruntime.Runner{
+		&fakeRunner{source: source("web-slow", "web", true), delay: 200 * time.Millisecond, err: sourceruntime.NewError("resolve_timeout", true, "slow", context.DeadlineExceeded)},
+		&fakeRunner{source: source("bt-only", "bt", true), delay: 5 * time.Millisecond, candidates: []sourceruntime.Candidate{btCandidate}},
+	})
+	httpRequest := httptest.NewRequest(http.MethodPost, "/v1/candidates", bytes.NewReader(body))
+	httpRequest.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	started := time.Now()
+	handler.ServeHTTP(response, httpRequest)
+	if response.Code != http.StatusOK {
+		t.Fatalf("unexpected status %d: %s", response.Code, response.Body.String())
+	}
+	events := decodeEvents(t, response.Body.Bytes())
+	if len(events) != 2 || candidateSource(events[0]) != "bt-only" || events[1]["queried"] != float64(1) {
+		t.Fatalf("web source should not have been queried: %s", response.Body.String())
+	}
+	if time.Since(started) > 150*time.Millisecond {
+		t.Fatalf("stream waited for the skipped web source: %s", time.Since(started))
 	}
 }
 

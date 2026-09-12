@@ -27,7 +27,7 @@ func serve(arguments []string) error {
 	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
 	root := flags.String("root", ".", "repository root containing schema/ and sources/")
 	listenAddress := flags.String("listen", "127.0.0.1:7788", "loopback listen address")
-	version := flags.String("version", "dev", "plugin version reported by manifest and health")
+	version := flags.String("version", buildVersion, "plugin version reported by manifest and health")
 	chrome := flags.String("chrome", "", "optional Chrome/Chromium executable path")
 	if err := flags.Parse(arguments); err != nil {
 		return err
@@ -104,6 +104,10 @@ func writePluginReady(output io.Writer, address string) error {
 	})
 }
 
+// buildVersion 由发布流水线以 -ldflags "-X main.buildVersion=<tag>" 注入；
+// 本地构建保持 dev。--version 显式传入时仍以传入值为准。
+var buildVersion = "dev"
+
 func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, error) {
 	runners, err := loadSourceRunners(root, chromePath)
 	if err != nil {
@@ -134,6 +138,10 @@ func loadSourceRunners(root, chromePath string) ([]sourceruntime.Runner, error) 
 		browserBackend = webresolver.NewNativeWebView(webresolver.NativeWebViewOptions{ExecutablePath: helperPath, MaxSessions: 2})
 	}
 	browser := webresolver.New(browserBackend)
+	// 浏览器解析日志默认关闭；排障时显式打开，输出已按 RedactURL 脱敏（无 query/凭据）。
+	if os.Getenv("NAGARE_SOURCE_DEBUG") == "1" {
+		browser.Logger = webresolver.LoggerFunc(log.Printf)
+	}
 	runners := make([]sourceruntime.Runner, 0, len(sources))
 	for _, source := range sources {
 		runners = append(runners, sourceruntime.NewSpecRunner(source.Document, sourceruntime.RunnerOptions{

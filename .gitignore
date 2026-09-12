@@ -4,3 +4,6 @@
 /reports/health.html
 *.tmp
 .DS_Store
+dist-bundle/
+dist-plugin/
+__pycache__/

@@ -4,40 +4,81 @@
   "title": "Nagare resolve request v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "subject", "episode"],
+  "required": [
+    "schema",
+    "subject",
+    "episode"
+  ],
   "properties": {
-    "schema": { "const": "nagare-resolve-request/v1" },
+    "schema": {
+      "const": "nagare-resolve-request/v1"
+    },
     "subject": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ids", "titles"],
+      "required": [
+        "ids",
+        "titles"
+      ],
       "properties": {
         "ids": {
           "type": "object",
           "minProperties": 1,
-          "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*$" },
-          "additionalProperties": { "type": "string", "minLength": 1 }
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "titles": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "season": { "type": "integer", "minimum": 0 },
-        "year": { "type": "integer", "minimum": 1900, "maximum": 3000 }
+        "season": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 1900,
+          "maximum": 3000
+        }
       }
     },
     "episode": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["number"],
+      "required": [
+        "number"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "number": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)?$" },
-        "absolute": { "type": "number", "exclusiveMinimum": 0 },
-        "airDate": { "type": "string", "format": "date" },
-        "title": { "type": "string", "minLength": 1 }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "number": {
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+)?$"
+        },
+        "absolute": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "airDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "preferences": {
@@ -47,13 +88,36 @@
         "subtitleLanguages": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+          }
         },
-        "maxResolution": { "$ref": "#/$defs/resolution" },
+        "maxResolution": {
+          "$ref": "#/$defs/resolution"
+        },
         "preferredTransports": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "enum": ["hls", "http", "torrent"] }
+          "items": {
+            "enum": [
+              "hls",
+              "http",
+              "torrent"
+            ]
+          }
+        },
+        "transports": {
+          "description": "只运行能产出这些 transport 的来源；缺席或为空表示全部启用来源。bt 来源对应 torrent，web 来源对应 hls/http。",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "hls",
+              "http",
+              "torrent"
+            ]
+          }
         }
       }
     }
@@ -61,7 +125,14 @@
   "$defs": {
     "resolution": {
       "type": "string",
-      "enum": ["360P", "480P", "720P", "1080P", "1440P", "2160P"]
+      "enum": [
+        "360P",
+        "480P",
+        "720P",
+        "1080P",
+        "1440P",
+        "2160P"
+      ]
     }
   }
 }

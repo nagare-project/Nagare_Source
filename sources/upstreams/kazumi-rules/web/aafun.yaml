@@ -40,7 +40,7 @@ episodes:
                 expression: 播放线路{{line_number}}
                 type: template
         items:
-            expression: //
+            expression: .
             type: xpath
     request:
         allowed_hosts:

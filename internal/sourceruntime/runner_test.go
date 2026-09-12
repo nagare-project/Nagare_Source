@@ -148,6 +148,7 @@ func TestSpecRunnerConvertsBTRecordsToCandidates(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := value.(map[string]any)
+	source["enabled"] = true // 此测试显式使用离线响应，生产模板保持禁用。
 	fixture := `<?xml version="1.0"?><rss><channel><item><title>[Group] Example Animation EP03 [1080P]</title><link>magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567</link><pubDate>Fri, 29 Sep 2023 12:00:00 +0000</pubDate></item></channel></rss>`
 	runner := NewSpecRunner(source, RunnerOptions{Fetcher: btcrawler.StaticFetcher{Response: btcrawler.Response{Body: []byte(fixture)}}})
 	request := ResolveRequest{Schema: "nagare-resolve-request/v1", Subject: Subject{IDs: map[string]string{"test": "1"}, Titles: []string{"Example Animation"}}, Episode: Episode{Number: "3", Absolute: pointer(3.0)}}

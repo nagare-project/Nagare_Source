@@ -88,8 +88,8 @@ func TestNewPluginHandlerLoadsValidatedRepositorySources(t *testing.T) {
 	selfCheck.Header.Set("Content-Type", "application/json")
 	selfCheckResponse := httptest.NewRecorder()
 	handler.ServeHTTP(selfCheckResponse, selfCheck)
-	if selfCheckResponse.Code != http.StatusOK || !strings.Contains(selfCheckResponse.Body.String(), `"status":"healthy"`) {
-		t.Fatalf("committed BT fixture was not connected to selfcheck: status=%d body=%s", selfCheckResponse.Code, selfCheckResponse.Body.String())
+	if selfCheckResponse.Code != http.StatusOK || !strings.Contains(selfCheckResponse.Body.String(), `"status":"disabled"`) {
+		t.Fatalf("disabled example must stay disabled in plugin: status=%d body=%s", selfCheckResponse.Code, selfCheckResponse.Body.String())
 	}
 }
 
@@ -111,7 +111,7 @@ func TestHealthCommandWritesValidatedJSONAndStaticPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"healthy": 1`, `"id": "example-http"`, `"id": "example-rss"`) {
+	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"healthy": 1`, `"id": "garden"`, `"id": "example-http"`, `"id": "example-rss"`) {
 		t.Fatalf("health JSON is incomplete: %s", jsonData)
 	}
 	htmlData, err := os.ReadFile(htmlPath)

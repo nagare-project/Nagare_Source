@@ -39,6 +39,8 @@ func main() {
 		err = serve(os.Args[2:])
 	case "health":
 		err = health(os.Args[2:])
+	case "bundle":
+		err = bundle(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -123,6 +125,8 @@ func crawlBT(arguments []string) error {
 		var fetcher btcrawler.Fetcher = btcrawler.HTTPFetcher{}
 		if fixtureBody != nil {
 			fetcher = btcrawler.StaticFetcher{Response: btcrawler.Response{URL: *responseURL, Body: fixtureBody}}
+			// 显式指定离线响应时允许校验禁用模板，不改变磁盘配置或联网抓取策略。
+			source["enabled"] = true
 		}
 		result, err := btcrawler.Crawl(context.Background(), source, query, fetcher)
 		if err != nil {
@@ -438,6 +442,7 @@ Usage:
   nagare-source crawl-bt --source FILE --out FILE [--title TITLE] [--episode NUMBER] [--selftest]
   nagare-source serve [--root PATH] [--listen 127.0.0.1:7788] [--version VERSION] [--chrome PATH]
   nagare-source health [--root PATH] [--mode fixture|network] [--out FILE] [--html FILE]
+  nagare-source bundle --out DIR [--root PATH] [--profile bt] [--generated-at RFC3339]
   nagare-source build [--root PATH] [--out PATH] [--version VERSION] [--generated-at RFC3339] [--bt-records FILE]
   nagare-source sync-approved --id ID --checkout PATH [--root PATH]
   nagare-source import animeko --input FILE --upstream URL --license SPDX [--out PATH]

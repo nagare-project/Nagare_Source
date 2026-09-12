@@ -39,11 +39,12 @@ type Options struct {
 }
 
 type Handler struct {
-	manifest  Manifest
-	runners   []sourceruntime.Runner
-	validator *repository.Validator
-	statuses  map[string]string
-	started   time.Time
+	manifest     Manifest
+	runners      []sourceruntime.Runner
+	validator    *repository.Validator
+	statuses     map[string]string
+	started      time.Time
+	browserSlots chan struct{}
 }
 
 func New(options Options) (*Handler, error) {
@@ -84,7 +85,7 @@ func New(options Options) (*Handler, error) {
 			return nil, fmt.Errorf("duplicate plugin source id %q", runner.Source().ID)
 		}
 	}
-	return &Handler{manifest: manifest, runners: runners, validator: validator, statuses: statuses, started: time.Now()}, nil
+	return &Handler{manifest: manifest, runners: runners, validator: validator, statuses: statuses, started: time.Now(), browserSlots: make(chan struct{}, 2)}, nil
 }
 
 func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -226,19 +227,33 @@ type sourceState struct {
 	done         bool
 }
 
+// servesTransport 判断来源能否产出请求允许的 transport；允许列表为空即全部放行。
+func servesTransport(source sourceruntime.Source, allowed []string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, transport := range allowed {
+		switch {
+		case source.Kind == "bt" && transport == "torrent":
+			return true
+		case source.Kind == "web" && (transport == "hls" || transport == "http"):
+			return true
+		}
+	}
+	return false
+}
+
 func (handler *Handler) streamCandidates(writer io.Writer, flusher http.Flusher, ctx context.Context, request sourceruntime.ResolveRequest, started time.Time) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var active []sourceruntime.Runner
 	for _, runner := range handler.runners {
-		if runner.Source().Enabled {
+		if runner.Source().Enabled && servesTransport(runner.Source(), request.Preferences.Transports) {
 			active = append(active, runner)
 		}
 	}
 	messages := make(chan candidateMessage, len(active)*2+1)
-	for index, runner := range active {
-		go runSource(ctx, index, runner, request, messages)
-	}
+	handler.startSources(ctx, active, request, messages)
 	states := make([]sourceState, len(active))
 	candidateIDs := map[string]bool{}
 	completed := 0

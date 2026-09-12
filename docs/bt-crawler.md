@@ -16,13 +16,15 @@ go run ./cmd/nagare-source crawl-bt \
 
 `--selftest` 使用 `selftest.request` 的首个标题或 query，并检查 `min_candidates` 与 torrent 传输类型。fixture 仍走正常的模板渲染、响应大小限制、解析、transform、匹配和记录校验，只替换网络读取步骤。自检失败时不会改写 `--out`。
 
+仓库示例来源默认禁用。只有显式传入 `--response-file` 时，CLI 才在内存中启用来源以验证离线响应；不会修改来源文件，也不会向占位站点发出网络请求。
+
 ## 实时抓取
 
-单来源查询：
+单来源查询（替换为已经配置真实站点且启用的规则路径）：
 
 ```sh
 go run ./cmd/nagare-source crawl-bt \
-  --source sources/bt/example-rss.yaml \
+  --source /path/to/enabled-bt-source.yaml \
   --title 'Example Animation' \
   --episode 3 \
   --out /tmp/bt-records.jsonl
