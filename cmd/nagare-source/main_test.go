@@ -111,8 +111,15 @@ func TestHealthCommandWritesValidatedJSONAndStaticPage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"healthy": 1`, `"id": "garden"`, `"id": "example-http"`, `"id": "example-rss"`) {
+	// 不钉死 healthy 的具体数字：每接一条 BT 来源它就会变，钉数字只会让每次加源都改测试。
+	if !containsAll(string(jsonData), `"schema": "nagare-source-health/v1"`, `"id": "garden"`, `"id": "mikan"`, `"id": "example-http"`, `"id": "example-rss"`) {
 		t.Fatalf("health JSON is incomplete: %s", jsonData)
+	}
+	var report struct {
+		Summary struct{ Healthy int } `json:"summary"`
+	}
+	if err := json.Unmarshal(jsonData, &report); err != nil || report.Summary.Healthy < 1 {
+		t.Fatalf("health JSON must report at least one healthy source (bundled BT sources use fixtures): err=%v report=%s", err, jsonData)
 	}
 	htmlData, err := os.ReadFile(htmlPath)
 	if err != nil {
