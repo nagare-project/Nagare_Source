@@ -5,10 +5,10 @@ homepage: https://acg.rip
 id: acg
 kind: bt
 limits:
-    concurrency: 1
+    concurrency: 3
     max_redirects: 3
     max_response_bytes: 5242880
-    requests_per_minute: 30
+    requests_per_minute: 120
     timeout_ms: 20000
 matching:
     require_episode: true

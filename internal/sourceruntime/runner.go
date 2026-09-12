@@ -119,26 +119,39 @@ func (runner *SpecRunner) btCandidates(ctx context.Context, request ResolveReque
 	if !strings.Contains(text(object(object(runner.source["search"])["request"])["url"]), "{{page}}") {
 		maxPages = 1
 	}
+	// 标题 × 页 全部并发：每个请求 1.5–3 秒，串行两标题三页要十几秒，选集窗口会一直转。
+	// 每个标题都搜、按 infohash 合并：索引站按关键词精确匹配，「幼女战记 第二季」与
+	// 「幼女戦記Ⅱ」命中的是不同字幕组的发布，只取第一个有结果的标题会漏掉一半。
+	// 请求里的标题都带季数信息，合并不会把别季的资源混进来。
+	type pageResult struct {
+		result btcrawler.Result
+		err    error
+	}
+	results := make(chan pageResult, len(titles)*maxPages)
+	var pending sync.WaitGroup
 	for _, title := range titles {
 		for page := 1; page <= maxPages; page++ {
-			result, err := btcrawler.Crawl(ctx, runner.source, btcrawler.Query{Title: title, Episode: episode, Page: page}, fetcher)
-			if err != nil {
-				lastError = err
-				if ctx.Err() != nil {
-					return contextError(ctx.Err(), "search")
-				}
-				break
-			}
-			// 每个标题都搜、按 infohash 合并：索引站按关键词精确匹配，「幼女战记 第二季」与
-			// 「幼女戦記Ⅱ」命中的是不同字幕组的发布，只取第一个有结果的标题会漏掉一半。
-			// 请求里的标题都带季数信息，合并不会把别季的资源混进来。
-			for _, record := range result.Records {
-				records[record.Key()] = record
-			}
-			if result.Exhausted {
-				break
-			}
+			pending.Add(1)
+			go func(title string, page int) {
+				defer pending.Done()
+				result, err := btcrawler.Crawl(ctx, runner.source, btcrawler.Query{Title: title, Episode: episode, Page: page}, fetcher)
+				results <- pageResult{result, err}
+			}(title, page)
 		}
+	}
+	pending.Wait()
+	close(results)
+	for item := range results {
+		if item.err != nil {
+			lastError = item.err
+			continue
+		}
+		for _, record := range item.result.Records {
+			records[record.Key()] = record
+		}
+	}
+	if ctx.Err() != nil {
+		return contextError(ctx.Err(), "search")
 	}
 	if len(records) == 0 {
 		if lastError != nil {

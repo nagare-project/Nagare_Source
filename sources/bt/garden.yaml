@@ -5,12 +5,13 @@ homepage: https://animes.garden
 id: garden
 kind: bt
 limits:
-    concurrency: 1
+    # 一次搜索 = 标题数 × 页数 个请求，全并发；30/min 的默认节流会把它拖成十几秒
+    concurrency: 3
     max_redirects: 3
     # 索引站按时间倒序：老番第一季的整季合集常在第二、三页（排球少年 S1 的 BDRip 在第 2 页）
     max_pages: 3
     max_response_bytes: 5242880
-    requests_per_minute: 30
+    requests_per_minute: 120
     timeout_ms: 12000
 matching:
     require_episode: true
