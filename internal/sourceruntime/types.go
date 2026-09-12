@@ -79,6 +79,9 @@ type Metadata struct {
 	SizeBytes         *int64   `json:"sizeBytes,omitempty"`
 	Seeders           *int64   `json:"seeders,omitempty"`
 	PublishedAt       string   `json:"publishedAt,omitempty"`
+	// Title 是来源上的原始发布标题（BT 条目）：字幕组、季数、清晰度都写在里面，
+	// 客户端要拿它展示和做本机解析；只给 Match.SubjectTitle 会把这些信息全丢掉。
+	Title string `json:"title,omitempty"`
 }
 
 type Source struct {

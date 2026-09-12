@@ -93,7 +93,7 @@ Cache-Control: no-store
 {"event":"candidate","candidate":{"schema":"nagare-candidate/v1","id":"example-http:400602:3:main","sourceId":"example-http","tier":1,"matchConfidence":1,"match":{"basis":["subject_id","title_episode"],"episodeNumber":3},"transport":{"type":"hls","url":"https://cdn.example.invalid/e3.m3u8"},"metadata":{"resolution":"1080P","episode":3}}}
 ```
 
-`candidate` 必须通过 [`candidate-v1.schema.json`](../schema/candidate-v1.schema.json)。同一请求内 `candidate.id` 必须唯一。插件发现候选后立即发送，不等待其他来源。
+`candidate` 必须通过 [`candidate-v1.schema.json`](../schema/candidate-v1.schema.json)。同一请求内 `candidate.id` 必须唯一。插件发现候选后立即发送，不等待其他来源。BT 候选的 `metadata.title` 是来源上的原始发布标题（字幕组、季数、清晰度都在里面），客户端用它展示和做本机解析；`match.subjectTitle` 只是请求里的作品名，不能替代它。
 
 ### `source_error`
 

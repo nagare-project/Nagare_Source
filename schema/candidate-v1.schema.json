@@ -4,108 +4,263 @@
   "title": "Nagare candidate v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "id", "sourceId", "tier", "matchConfidence", "match", "transport", "metadata"],
+  "required": [
+    "schema",
+    "id",
+    "sourceId",
+    "tier",
+    "matchConfidence",
+    "match",
+    "transport",
+    "metadata"
+  ],
   "properties": {
-    "schema": { "const": "nagare-candidate/v1" },
-    "id": { "type": "string", "minLength": 1, "maxLength": 256 },
-    "sourceId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
-    "tier": { "type": "integer", "minimum": 0, "maximum": 9 },
-    "matchConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "schema": {
+      "const": "nagare-candidate/v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "tier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "matchConfidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
     "match": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["basis"],
+      "required": [
+        "basis"
+      ],
       "properties": {
         "basis": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "enum": ["episode_id", "subject_id", "title_episode", "air_date"] }
+          "items": {
+            "enum": [
+              "episode_id",
+              "subject_id",
+              "title_episode",
+              "air_date"
+            ]
+          }
         },
-        "subjectTitle": { "type": "string", "minLength": 1 },
-        "episodeNumber": { "type": "number", "exclusiveMinimum": 0 },
-        "evidence": { "type": "string", "minLength": 1, "maxLength": 512 }
+        "subjectTitle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "episodeNumber": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
       }
     },
     "transport": {
       "oneOf": [
-        { "$ref": "#/$defs/hlsTransport" },
-        { "$ref": "#/$defs/httpTransport" },
-        { "$ref": "#/$defs/torrentTransport" }
+        {
+          "$ref": "#/$defs/hlsTransport"
+        },
+        {
+          "$ref": "#/$defs/httpTransport"
+        },
+        {
+          "$ref": "#/$defs/torrentTransport"
+        }
       ]
     },
     "metadata": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "resolution": { "$ref": "#/$defs/resolution" },
+        "resolution": {
+          "$ref": "#/$defs/resolution"
+        },
         "subtitleLanguages": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+          }
         },
-        "channel": { "type": "string", "minLength": 1 },
-        "channelTier": { "type": "integer", "minimum": 0, "maximum": 99 },
-        "episode": { "type": "number", "exclusiveMinimum": 0 },
-        "fansub": { "type": "string", "minLength": 1 },
-        "sizeBytes": { "type": "integer", "minimum": 0 },
-        "seeders": { "type": "integer", "minimum": 0 },
-        "publishedAt": { "type": "string", "format": "date-time" }
+        "channel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channelTier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 99
+        },
+        "episode": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fansub": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seeders": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "来源上的原始发布标题（BT 条目），供客户端展示与本机解析；不是媒体地址"
+        }
       }
     }
   },
   "$defs": {
     "headers": {
       "type": "object",
-      "propertyNames": { "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" },
-      "additionalProperties": { "type": "string" }
+      "propertyNames": {
+        "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "resolution": {
       "type": "string",
-      "enum": ["360P", "480P", "720P", "1080P", "1440P", "2160P"]
+      "enum": [
+        "360P",
+        "480P",
+        "720P",
+        "1080P",
+        "1440P",
+        "2160P"
+      ]
     },
     "hlsTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "url"],
+      "required": [
+        "type",
+        "url"
+      ],
       "properties": {
-        "type": { "const": "hls" },
-        "url": { "type": "string", "format": "uri", "pattern": "^https?://" },
-        "headers": { "$ref": "#/$defs/headers" },
-        "expiresAt": { "type": "integer", "minimum": 0 }
+        "type": {
+          "const": "hls"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "httpTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "url"],
+      "required": [
+        "type",
+        "url"
+      ],
       "properties": {
-        "type": { "const": "http" },
-        "url": { "type": "string", "format": "uri", "pattern": "^https?://" },
-        "headers": { "$ref": "#/$defs/headers" },
-        "expiresAt": { "type": "integer", "minimum": 0 }
+        "type": {
+          "const": "http"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "torrentTransport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "const": "torrent" },
-        "magnet": { "type": "string", "pattern": "^magnet:\\?" },
-        "infoHash": { "type": "string", "pattern": "^(?:[A-Fa-f0-9]{40}|[A-Za-z2-7]{32})$" },
-        "torrentUrl": { "type": "string", "format": "uri", "pattern": "^https?://" },
-        "fileIndex": { "type": "integer", "minimum": 0 },
+        "type": {
+          "const": "torrent"
+        },
+        "magnet": {
+          "type": "string",
+          "pattern": "^magnet:\\?"
+        },
+        "infoHash": {
+          "type": "string",
+          "pattern": "^(?:[A-Fa-f0-9]{40}|[A-Za-z2-7]{32})$"
+        },
+        "torrentUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "fileIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
         "trackers": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "format": "uri" }
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
         }
       },
       "anyOf": [
-        { "required": ["magnet"] },
-        { "required": ["infoHash"] },
-        { "required": ["torrentUrl"] }
+        {
+          "required": [
+            "magnet"
+          ]
+        },
+        {
+          "required": [
+            "infoHash"
+          ]
+        },
+        {
+          "required": [
+            "torrentUrl"
+          ]
+        }
       ]
     }
   }

@@ -158,6 +158,7 @@ func (runner *SpecRunner) btCandidate(record btindex.Record, request ResolveRequ
 	metadata := Metadata{
 		Resolution: record.Resolution, SubtitleLanguages: append([]string(nil), record.SubtitleLanguages...),
 		Fansub: record.Fansub, SizeBytes: record.SizeBytes, Seeders: record.Seeders, PublishedAt: record.PublishedAt,
+		Title: record.Title,
 	}
 	if record.Episode != nil {
 		metadata.Episode = pointer(*record.Episode)
