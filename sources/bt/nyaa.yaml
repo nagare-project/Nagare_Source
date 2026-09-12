@@ -1,0 +1,94 @@
+defaults:
+    subtitle_languages: []
+enabled: true
+homepage: https://nyaa.si
+id: nyaa
+kind: bt
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 30
+    timeout_ms: 20000
+matching:
+    require_episode: true
+    require_subject: false
+name: Nyaa
+# Nyaa RSS：nyaa:infoHash + nyaa:seeders，磁力由 infohash 拼装并附两条公共 tracker。
+# 注意：部分地区（含中国大陆、澳大利亚等）DNS 层面屏蔽 nyaa.si，届时来源状态为不可用。
+origin:
+    ecosystem: community
+    license: AGPL-3.0
+    upstream: https://nyaa.si
+    version: "1"
+ranking:
+    has_seeders: true
+    priority: 0
+resolve:
+    mode: direct
+    transport: torrent
+    url: '{{magnet}}'
+schema: nagare-source/v1
+search:
+    fields:
+        episode:
+            expression: title
+            required: false
+            transforms:
+                - parse_episode
+            type: field
+        fansub:
+            expression: title
+            transforms:
+                - parse_fansub
+            required: false
+            type: field
+        magnet:
+            expression: ./nyaa:infoHash/text()
+            transforms:
+                - display_name_from: title
+                  trackers:
+                    - http://nyaa.tracker.wf:7777/announce
+                    - http://tracker.opentrackr.org:1337/announce
+                  type: magnet
+            type: xpath
+        published_at:
+            expression: ./pubDate/text()
+            required: false
+            transforms:
+                - type: parse_datetime
+                  unit: auto
+            type: xpath
+        size_bytes:
+            expression: ./nyaa:size/text()
+            required: false
+            transforms:
+                - type: parse_size
+                  unit: auto
+            type: xpath
+        seeders:
+            expression: ./nyaa:seeders/text()
+            required: false
+            type: xpath
+        title:
+            expression: ./title/text()
+            type: xpath
+    items:
+        expression: /rss/channel/item
+        type: xpath
+    namespaces:
+        nyaa: https://nyaa.si/xmlns/nyaa
+    request:
+        allowed_hosts:
+            - nyaa.si
+        method: GET
+        timeout_ms: 20000
+        url: https://nyaa.si/?page=rss&q={{title}}&c=1_0&f=0
+    response: xml
+selftest:
+    expect:
+        min_candidates: 1
+        transport: torrent
+    request:
+        query: frieren
+tier: 3

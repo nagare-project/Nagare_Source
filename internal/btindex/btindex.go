@@ -118,11 +118,23 @@ func NormalizeRecord(record Record) (Record, error) {
 	return record, nil
 }
 
+// Key 是同一来源内的去重键：有 infohash 用 infohash，只有 .torrent 地址的用地址。
+func (r Record) Key() string {
+	if r.InfoHash != "" {
+		return r.SourceID + "/" + r.InfoHash
+	}
+	return r.SourceID + "/url:" + r.TorrentURL
+}
+
 // Build writes a deterministic SQLite database and wraps it in a deterministic
 // Zstandard frame. The returned digest covers the compressed release artifact.
 func Build(records []Record, generatedAt time.Time, outputPath string) (Artifact, error) {
 	records = append([]Record(nil), records...)
 	for index := range records {
+		if strings.TrimSpace(records[index].InfoHash) == "" {
+			// 发布索引以 (source_id, info_hash) 为主键，只有地址的条目进不了快照，只能实时抓取。
+			return Artifact{}, fmt.Errorf("record %d: infoHash is required in the published index", index+1)
+		}
 		normalized, err := NormalizeRecord(records[index])
 		if err != nil {
 			return Artifact{}, fmt.Errorf("record %d: %w", index+1, err)
@@ -307,9 +319,15 @@ func normalizeRecord(record *Record) error {
 	if !sourceIDPattern.MatchString(record.SourceID) {
 		return errors.New("sourceId is invalid")
 	}
-	hash, err := normalizeInfoHash(record.InfoHash)
-	if err != nil {
-		return err
+	// infoHash 与 torrentUrl 二选一：acg.rip 一类的 RSS 只给 .torrent 地址，没有 infohash；
+	// 种子文件里自带 info 和 tracker，播放端下载它即可（照 Animeko 的 HttpTorrentFile 路径）。
+	hash := ""
+	if strings.TrimSpace(record.InfoHash) != "" || record.TorrentURL == "" {
+		normalized, err := normalizeInfoHash(record.InfoHash)
+		if err != nil {
+			return err
+		}
+		hash = normalized
 	}
 	record.InfoHash = hash
 	record.Title = strings.TrimSpace(record.Title)
@@ -323,6 +341,9 @@ func normalizeRecord(record *Record) error {
 		return errors.New("magnet or torrentUrl is required")
 	}
 	if record.Magnet != "" {
+		if hash == "" {
+			return errors.New("infoHash is required when magnet is present")
+		}
 		if err := validateMagnet(record.Magnet, hash); err != nil {
 			return err
 		}

@@ -1,0 +1,34 @@
+[
+ {
+  "id": 1,
+  "title": "[Example] Sousou no Frieren - 01 (1080p).mkv",
+  "link": "https://animetosho.org/view/1",
+  "timestamp": 1788000000,
+  "status": "complete",
+  "tosho_id": 1,
+  "nyaa_id": 1,
+  "total_size": 1500000000,
+  "magnet_uri": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=ex",
+  "info_hash": "0123456789abcdef0123456789abcdef01234567",
+  "seeders": 12,
+  "leechers": 1,
+  "torrent_url": "https://animetosho.org/storage/torrent/1.torrent",
+  "num_files": 1
+ },
+ {
+  "id": 2,
+  "title": "[Example] Sousou no Frieren - 02 (1080p).mkv",
+  "link": "https://animetosho.org/view/2",
+  "timestamp": 1788600000,
+  "status": "complete",
+  "tosho_id": 2,
+  "nyaa_id": 2,
+  "total_size": 1500000001,
+  "magnet_uri": "magnet:?xt=urn:btih:fedcba9876543210fedcba9876543210fedcba98&dn=ex2",
+  "info_hash": "fedcba9876543210fedcba9876543210fedcba98",
+  "seeders": 5,
+  "leechers": 0,
+  "torrent_url": "https://animetosho.org/storage/torrent/2.torrent",
+  "num_files": 1
+ }
+]

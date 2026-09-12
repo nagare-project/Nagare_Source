@@ -1,14 +1,14 @@
 {
   "schema": "nagare-source-health/v1",
-  "generatedAt": "2026-09-12T10:16:46Z",
+  "generatedAt": "2026-09-12T13:34:31Z",
   "mode": "fixture",
   "summary": {
-    "total": 87,
-    "healthy": 1,
+    "total": 92,
+    "healthy": 5,
     "degraded": 12,
     "unavailable": 0,
     "interactiveRequired": 0,
-    "disabled": 74
+    "disabled": 75
   },
   "sources": [
     {
@@ -87,6 +87,15 @@
       "durationMs": 0,
       "category": "unsupported_rule",
       "message": "source has no self-test request"
+    },
+    {
+      "id": "acg",
+      "name": "ACG.RIP",
+      "kind": "bt",
+      "tier": 3,
+      "version": "1",
+      "status": "healthy",
+      "durationMs": 0
     },
     {
       "id": "age",
@@ -287,6 +296,15 @@
       "message": "source is disabled"
     },
     {
+      "id": "dmhy",
+      "name": "動漫花園",
+      "kind": "bt",
+      "tier": 3,
+      "version": "1",
+      "status": "healthy",
+      "durationMs": 0
+    },
+    {
       "id": "dms",
       "name": "dms",
       "kind": "web",
@@ -403,7 +421,7 @@
       "tier": 3,
       "version": "1",
       "status": "healthy",
-      "durationMs": 1
+      "durationMs": 0
     },
     {
       "id": "girigirilove",
@@ -582,6 +600,15 @@
       "message": "source is disabled"
     },
     {
+      "id": "mikan",
+      "name": "Mikan Project",
+      "kind": "bt",
+      "tier": 3,
+      "version": "1",
+      "status": "healthy",
+      "durationMs": 0
+    },
+    {
       "id": "mitang",
       "name": "mitang",
       "kind": "web",
@@ -692,6 +719,15 @@
       "message": "source is disabled"
     },
     {
+      "id": "nyaa",
+      "name": "Nyaa",
+      "kind": "bt",
+      "tier": 3,
+      "version": "1",
+      "status": "healthy",
+      "durationMs": 0
+    },
+    {
       "id": "nyafun",
       "name": "nyafun",
       "kind": "web",
@@ -800,6 +836,17 @@
       "durationMs": 0,
       "category": "unsupported_rule",
       "message": "source has no self-test request"
+    },
+    {
+      "id": "tosho",
+      "name": "AnimeTosho",
+      "kind": "bt",
+      "tier": 3,
+      "version": "1",
+      "status": "disabled",
+      "durationMs": 0,
+      "category": "source_disabled",
+      "message": "source is disabled"
     },
     {
       "id": "tt776b",

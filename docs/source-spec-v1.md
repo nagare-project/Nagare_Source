@@ -113,7 +113,7 @@ magnet:
 | `html_decode`、`url_decode` | 解码 HTML entity 或百分号编码。 |
 | `absolute_url` | 相对于产生当前值的响应 URL 解析。 |
 | `parse_episode` | 提取十进制集号；无法确定时返回错误，不得回退为第一集。 |
-| `parse_size`、`parse_datetime` | 规范化为 bytes 或 RFC 3339。 |
+| `parse_size`、`parse_datetime` | 规范化为 bytes 或 RFC 3339。`parse_datetime` 接受 RFC 1123/822/3339 与 `2006-01-02 15:04:05 -0700`；不带时区的串按 `assume_offset`（如 `"+08:00"`，Mikan 的 pubDate 是北京时间裸串）解释，缺省当 UTC。 |
 | `parse_fansub` | 从规范发布标题中提取字幕组。 |
 | `magnet` | 从 infohash 创建 magnet，可引用标题字段并附加 tracker。 |
 | `normalize_infohash` | 规范化 40 位十六进制或 32 位 base32 infohash。 |

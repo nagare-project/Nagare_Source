@@ -2,6 +2,8 @@ package sourceruntime
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -124,7 +126,7 @@ func (runner *SpecRunner) btCandidates(ctx context.Context, request ResolveReque
 		// 「幼女戦記Ⅱ」命中的是不同字幕组的发布，只取第一个有结果的标题会漏掉一半。
 		// 请求里的标题都带季数信息，合并不会把别季的资源混进来。
 		for _, record := range result.Records {
-			records[record.SourceID+":"+record.InfoHash] = record
+			records[record.Key()] = record
 		}
 	}
 	if len(records) == 0 {
@@ -160,8 +162,14 @@ func (runner *SpecRunner) btCandidate(record btindex.Record, request ResolveRequ
 	if record.Episode != nil {
 		metadata.Episode = pointer(*record.Episode)
 	}
+	candidateID := record.SourceID + ":" + record.InfoHash
+	if record.InfoHash == "" {
+		// 只有 .torrent 地址：用地址摘要当 id，不把地址本身塞进 id
+		sum := sha256.Sum256([]byte(record.TorrentURL))
+		candidateID = record.SourceID + ":url:" + hex.EncodeToString(sum[:8])
+	}
 	return Candidate{
-		Schema: "nagare-candidate/v1", ID: record.SourceID + ":" + record.InfoHash,
+		Schema: "nagare-candidate/v1", ID: candidateID,
 		SourceID: record.SourceID, Tier: runner.Source().Tier, MatchConfidence: confidence,
 		Match:     Match{Basis: []string{"title_episode"}, SubjectTitle: firstTitle(request.Subject.Titles), EpisodeNumber: pointer(episode), Evidence: "normalized title alias and release episode matched"},
 		Transport: Transport{Type: "torrent", Magnet: record.Magnet, InfoHash: record.InfoHash, TorrentURL: record.TorrentURL},

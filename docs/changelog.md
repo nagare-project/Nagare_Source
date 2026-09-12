@@ -4,6 +4,14 @@
 
 ## [Unreleased] - 2026-09-09
 
+### 2026-09-12（二）：五个 BT 来源、种子文件路径
+
+- 新增 `sources/bt/` 的 動漫花園（dmhy）、Mikan、ACG.RIP、Nyaa（默认启用）与 AnimeTosho（默认关闭：只索引英文标题，对中文目录的续作命中率低）。规则由 nagare 的 schema-1 规则转换而来并逐条实测修正。
+- BT record 放宽为 **infoHash 与 torrentUrl 二选一**（照 Animeko 的 `HttpTorrentFile` 路径）：ACG.RIP 只给 `.torrent` 地址；种子文件自带 info 与 tracker，播放端下载它后不再有「找元数据」阶段（nagare 实测 8 秒起播，此前磁力路径 18 秒）。只有地址的条目不能进发布索引（主键需要 infohash），`Record.Key()` 统一去重键，候选 id 用地址摘要。
+- `parse_datetime` 接受不带时区的 ISO 串并新增 `assume_offset`（Mikan 的 pubDate 是北京时间裸串）；`2006-01-02 15:04:05 -0700` 也接受。
+- 五条规则均 `require_subject: false`（站点已按关键词筛，繁体/别名写法复核会整批丢）、fansub / size / date 可缺、Nyaa 给做种数。
+- nyaa.si 在部分地区（含中国大陆、澳大利亚）被 DNS 屏蔽，届时来源状态为不可用，不影响其他来源。
+
 ### 2026-09-12：内置 Anime Garden BT 来源、只要 BT 的快路径
 
 - 新增 `sources/bt/garden.yaml`（Anime Garden 开放 JSON 接口，AGPL-3.0 项目），默认启用。这是仓库第一条真实 BT 来源：用户装上插件就能在 Nagare 的磁力选集里看到资源，不必再自己找规则仓库。接口返回的磁力不带 tracker，由 Nagare 侧内置的公共 tracker 组补齐。

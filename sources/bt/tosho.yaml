@@ -1,0 +1,87 @@
+defaults:
+    subtitle_languages: []
+# 默认关闭：只索引英文/罗马音标题，对中文目录的续作查询命中率很低，且只给做种数不给字幕组规范名。
+enabled: false
+homepage: https://animetosho.org
+id: tosho
+kind: bt
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 30
+    timeout_ms: 20000
+matching:
+    require_episode: true
+    # 站点自己已按关键词筛过；标题里常见繁体/别名写法，用请求标题做子串复核会整批丢掉
+    require_subject: false
+name: AnimeTosho
+# AnimeTosho JSON feed：英文/罗马音索引，给做种数；只搜英文标题有效。
+origin:
+    ecosystem: community
+    license: AGPL-3.0
+    upstream: https://animetosho.org
+    version: "1"
+ranking:
+    has_seeders: true
+    priority: 10
+resolve:
+    mode: direct
+    transport: torrent
+    url: '{{magnet}}'
+schema: nagare-source/v1
+search:
+    fields:
+        episode:
+            expression: title
+            required: false
+            transforms:
+                - parse_episode
+            type: field
+        info_hash:
+            expression: $.info_hash
+            transforms:
+                - trim
+                - lowercase
+            type: jsonpath
+        magnet:
+            expression: $.magnet_uri
+            type: jsonpath
+        published_at:
+            expression: $.timestamp
+            transforms:
+                - type: parse_datetime
+                  unit: unix_seconds
+            type: jsonpath
+        seeders:
+            expression: $.seeders
+            required: false
+            type: jsonpath
+        size_bytes:
+            expression: $.total_size
+            transforms:
+                - type: parse_size
+                  unit: B
+            type: jsonpath
+        title:
+            expression: $.title
+            type: jsonpath
+    items:
+        expression: $
+        type: jsonpath
+    request:
+        allowed_hosts:
+            - feed.animetosho.org
+        headers:
+            Accept: application/json
+        method: GET
+        timeout_ms: 20000
+        url: https://feed.animetosho.org/json?q={{title}}&only_tor=1
+    response: json
+selftest:
+    expect:
+        min_candidates: 1
+        transport: torrent
+    request:
+        query: frieren
+tier: 3

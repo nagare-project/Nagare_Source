@@ -608,7 +608,7 @@ func applyTransform(value string, definition any, responseURL string, resolve fu
 	case "parse_size":
 		return parseSize(value, text(options["unit"]))
 	case "parse_datetime":
-		return parseDateTime(value, text(options["unit"]))
+		return parseDateTime(value, text(options["unit"]), text(options["assume_offset"]))
 	case "normalize_infohash":
 		return strings.ToLower(strings.TrimSpace(value)), nil
 	case "parse_fansub":
@@ -717,7 +717,9 @@ func parseSize(value, unit string) (string, error) {
 	return strconv.FormatInt(int64(number*multiplier), 10), nil
 }
 
-func parseDateTime(value, unit string) (string, error) {
+// parseDateTime 把各种站点时间串统一成 RFC 3339 UTC。不带时区的串按 assume_offset
+// （如 "+08:00"，Mikan 的 pubDate 就是北京时间裸串）解释，缺省当 UTC。
+func parseDateTime(value, unit, assumeOffset string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if unit == "unix_seconds" || unit == "unix_milliseconds" {
 		integerValue, err := strconv.ParseInt(trimmed, 10, 64)
@@ -729,8 +731,22 @@ func parseDateTime(value, unit string) (string, error) {
 		}
 		return time.Unix(integerValue, 0).UTC().Format(time.RFC3339), nil
 	}
-	for _, layout := range []string{time.RFC3339, time.RFC1123Z, time.RFC1123, time.RFC822Z, time.RFC822} {
+	for _, layout := range []string{time.RFC3339, time.RFC1123Z, time.RFC1123, time.RFC822Z, time.RFC822, "2006-01-02 15:04:05 -0700"} {
 		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed.UTC().Format(time.RFC3339), nil
+		}
+	}
+	location := time.UTC
+	if assumeOffset != "" {
+		offset, err := time.Parse("-07:00", assumeOffset)
+		if err != nil {
+			return "", errors.New("assume_offset must look like +08:00")
+		}
+		_, seconds := offset.Zone()
+		location = time.FixedZone(assumeOffset, seconds)
+	}
+	for _, layout := range []string{"2006-01-02T15:04:05.999999999", "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
+		if parsed, err := time.ParseInLocation(layout, trimmed, location); err == nil {
 			return parsed.UTC().Format(time.RFC3339), nil
 		}
 	}

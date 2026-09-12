@@ -1,0 +1,88 @@
+defaults:
+    subtitle_languages: []
+enabled: true
+homepage: https://acg.rip
+id: acg
+kind: bt
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 30
+    timeout_ms: 20000
+matching:
+    require_episode: true
+    # 站点自己已按关键词筛过；标题里常见繁体/别名写法，用请求标题做子串复核会整批丢掉
+    require_subject: false
+name: ACG.RIP
+# ACG.RIP RSS：只给 .torrent 地址，没有 infohash 也没有磁力——种子文件自带 info 与 tracker，播放端下载它；大小在 torrent:contentLength。
+origin:
+    ecosystem: community
+    license: AGPL-3.0
+    upstream: https://acg.rip
+    version: "1"
+ranking:
+    has_seeders: false
+    priority: 0
+resolve:
+    mode: direct
+    transport: torrent
+    url: '{{torrent_url}}'
+schema: nagare-source/v1
+search:
+    fields:
+        episode:
+            expression: title
+            required: false
+            transforms:
+                - parse_episode
+            type: field
+        fansub:
+            expression: title
+            transforms:
+                - parse_fansub
+            required: false
+            type: field
+        torrent_url:
+            expression: ./enclosure/@url
+            type: xpath
+        published_at:
+            expression: ./pubDate/text()
+            required: false
+            transforms:
+                - type: parse_datetime
+                  unit: auto
+            type: xpath
+        size_bytes:
+            any:
+                - expression: ./torrent:contentLength/text()
+                  type: xpath
+                - expression: ./media:content/@fileSize
+                  type: xpath
+            required: false
+            transforms:
+                - type: parse_size
+                  unit: B
+        title:
+            expression: ./title/text()
+            type: xpath
+    items:
+        expression: /rss/channel/item
+        type: xpath
+    namespaces:
+        media: http://search.yahoo.com/mrss/
+        torrent: http://xmlns.ezrss.it/0.1/
+    request:
+        allowed_hosts:
+            - acg.rip
+        method: GET
+        timeout_ms: 20000
+        url: https://acg.rip/.xml?term={{title}}
+    response: xml
+selftest:
+    expect:
+        min_candidates: 1
+        transport: torrent
+    request:
+        query: 葬送的芙莉莲
+tier: 3

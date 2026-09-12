@@ -1,0 +1,106 @@
+defaults:
+    subtitle_languages: []
+enabled: true
+homepage: https://mikanani.me
+id: mikan
+kind: bt
+limits:
+    concurrency: 1
+    max_redirects: 3
+    max_response_bytes: 5242880
+    requests_per_minute: 30
+    timeout_ms: 20000
+matching:
+    require_episode: true
+    # 站点自己已按关键词筛过；标题里常见繁体/别名写法，用请求标题做子串复核会整批丢掉
+    require_subject: false
+name: Mikan Project
+# Mikan Project RSS：enclosure 是 .torrent 文件（自带 tracker），链接末尾就是 infohash；pubDate 是不带时区的北京时间。
+origin:
+    ecosystem: community
+    license: AGPL-3.0
+    upstream: https://mikanani.me
+    version: "1"
+ranking:
+    has_seeders: false
+    priority: 0
+resolve:
+    mode: direct
+    transport: torrent
+    url: '{{magnet}}'
+schema: nagare-source/v1
+search:
+    fields:
+        episode:
+            expression: title
+            required: false
+            transforms:
+                - parse_episode
+            type: field
+        fansub:
+            expression: title
+            transforms:
+                - parse_fansub
+            required: false
+            type: field
+        magnet:
+            any:
+                - expression: ./enclosure/@url
+                  transforms:
+                    - pattern: '[0-9a-fA-F]{40}'
+                      type: regex
+                  type: xpath
+                - expression: ./link/text()
+                  transforms:
+                    - pattern: '[0-9a-fA-F]{40}'
+                      type: regex
+                  type: xpath
+            transforms:
+                - display_name_from: title
+                  trackers:
+                    - http://nyaa.tracker.wf:7777/announce
+                    - http://tracker.opentrackr.org:1337/announce
+                  type: magnet
+        published_at:
+            any:
+                - expression: ./pubDate/text()
+                  type: xpath
+                - expression: ./mikan:torrent/mikan:pubDate/text()
+                  type: xpath
+            required: false
+            transforms:
+                - type: parse_datetime
+                  unit: auto
+                  assume_offset: "+08:00"
+        size_bytes:
+            expression: ./mikan:torrent/mikan:contentLength/text()
+            transforms:
+                - type: parse_size
+                  unit: B
+            type: xpath
+        title:
+            expression: ./title/text()
+            type: xpath
+        torrent_url:
+            expression: ./enclosure/@url
+            required: false
+            type: xpath
+    items:
+        expression: /rss/channel/item
+        type: xpath
+    namespaces:
+        mikan: https://mikanani.me/0.1/
+    request:
+        allowed_hosts:
+            - mikanani.me
+        method: GET
+        timeout_ms: 20000
+        url: https://mikanani.me/RSS/Search?searchstr={{title}}
+    response: xml
+selftest:
+    expect:
+        min_candidates: 1
+        transport: torrent
+    request:
+        query: 葬送的芙莉莲
+tier: 3

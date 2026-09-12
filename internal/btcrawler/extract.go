@@ -645,7 +645,7 @@ func applyTransform(value string, definition any, responseURL string, resolve fu
 	case "parse_size":
 		return parseSize(value, stringValue(object["unit"]))
 	case "parse_datetime":
-		return parseDateTime(value, stringValue(object["unit"]))
+		return parseDateTime(value, stringValue(object["unit"]), stringValue(object["assume_offset"]))
 	case "normalize_infohash":
 		return normalizeInfoHash(value)
 	case "parse_fansub":
@@ -777,7 +777,9 @@ func parseSize(value, unit string) (string, error) {
 	return strconv.FormatInt(int64(math.Round(bytesValue)), 10), nil
 }
 
-func parseDateTime(value, unit string) (string, error) {
+// parseDateTime 把各种站点时间串统一成 RFC 3339 UTC。不带时区的串按 assume_offset
+// （如 "+08:00"，Mikan 的 pubDate 就是北京时间裸串）解释，缺省当 UTC。
+func parseDateTime(value, unit, assumeOffset string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if unit == "unix_seconds" || unit == "unix_milliseconds" {
 		number, err := strconv.ParseInt(trimmed, 10, 64)
@@ -792,10 +794,25 @@ func parseDateTime(value, unit string) (string, error) {
 	}
 	formats := []string{
 		time.RFC3339Nano, time.RFC1123Z, time.RFC1123, time.RFC822Z, time.RFC822,
-		"2006-01-02 15:04:05 -0700", "2006-01-02 15:04:05",
+		"2006-01-02 15:04:05 -0700",
 	}
 	for _, format := range formats {
 		when, err := time.Parse(format, trimmed)
+		if err == nil {
+			return when.UTC().Format(time.RFC3339), nil
+		}
+	}
+	location := time.UTC
+	if assumeOffset != "" {
+		offset, err := time.Parse("-07:00", assumeOffset)
+		if err != nil {
+			return "", errors.New("assume_offset must look like +08:00")
+		}
+		_, seconds := offset.Zone()
+		location = time.FixedZone(assumeOffset, seconds)
+	}
+	for _, format := range []string{"2006-01-02T15:04:05.999999999", "2006-01-02T15:04:05", "2006-01-02 15:04:05", "2006-01-02"} {
+		when, err := time.ParseInLocation(format, trimmed, location)
 		if err == nil {
 			return when.UTC().Format(time.RFC3339), nil
 		}

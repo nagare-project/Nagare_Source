@@ -14,7 +14,7 @@
 
 - `schema`、`sourceId`、`infoHash`、`title` 必填；`sourceId` 必须指向本次仓库中的 BT 来源。
 - `infoHash` 接受 40 位十六进制或 32 位 Base32，入库时统一为小写十六进制。
-- `magnet` 与 `torrentUrl` 至少提供一个；magnet 的 `xt=urn:btih` 必须和 `infoHash` 一致。
+- `magnet` 与 `torrentUrl` 至少提供一个；magnet 的 `xt=urn:btih` 必须和 `infoHash` 一致。只有 `torrentUrl` 的条目可以没有 `infoHash`（acg.rip 一类 RSS 不给 infohash，种子文件里自带）——这类条目只在实时抓取里作为候选出现，**不能进发布索引**（主键需要 infohash）。
 - `episode` 必须大于 0；`sizeBytes` 和 `seeders` 不得为负数；`publishedAt` 使用 RFC 3339。
 - `resolution` 与 Candidate v1 使用同一组枚举；字幕语言使用 BCP 47 风格标签且不可重复。
 - 未声明字段、同一 `sourceId + infoHash` 的重复记录和超过 1 MiB 的单行都会让整个构建失败。

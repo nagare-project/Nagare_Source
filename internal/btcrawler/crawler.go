@@ -105,7 +105,7 @@ func Crawl(ctx context.Context, source map[string]any, query Query, fetcher Fetc
 		if !matchesQuery(source, record, query) {
 			continue
 		}
-		key := record.SourceID + "/" + record.InfoHash
+		key := record.Key()
 		if previous, exists := byKey[key]; exists {
 			previousJSON, _ := json.Marshal(previous)
 			currentJSON, _ := json.Marshal(record)
@@ -352,7 +352,7 @@ func WriteJSONL(path string, records []btindex.Record) error {
 		if err != nil {
 			return fmt.Errorf("record %d: %w", index+1, err)
 		}
-		key := normalized.SourceID + "/" + normalized.InfoHash
+		key := normalized.Key()
 		if seen[key] {
 			return fmt.Errorf("duplicate sourceId/infoHash %s", key)
 		}
