@@ -135,25 +135,51 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 	nestedNavigations := 0
 	currentPageURL := request.URL
 	nestedVisited := map[string]bool{request.URL: true}
-	for {
-		select {
-		case <-ctx.Done():
-			cancelSession()
+	// 浏览器退出（done）和它退出前发出的最后几个事件（events 缓冲里）会同时就绪，
+	// select 随机挑一个：先挑到 done 就把已经拿到的媒体响应当成「没找到」丢了（CI 上
+	// 实测过这种失败）。所以 done 到了先不返回，把缓冲里的事件排干再下结论。
+	finished := false
+	var finishedErr error
+	// 浏览器已退出时 done 早被收走，再等只会白等一秒
+	wait := func() {
+		if !finished {
 			waitBrowser(done)
-			return Media{}, "", contextResolveError(ctx.Err())
-		case err := <-done:
-			if err == nil {
-				return Media{}, "", wrapError(CategoryResolveFailed, true, "browser stopped before a media response was found", nil)
+		}
+	}
+	browserStopped := func(err error) (Media, string, error) {
+		if err == nil {
+			return Media{}, "", wrapError(CategoryResolveFailed, true, "browser stopped before a media response was found", nil)
+		}
+		if errors.Is(err, context.Canceled) && ctx.Err() == nil {
+			return Media{}, "", wrapError(CategoryResolveFailed, true, "browser session ended unexpectedly", err)
+		}
+		var typed *Error
+		if asError(err, &typed) {
+			return Media{}, "", typed
+		}
+		return Media{}, "", browserFailure("navigation or network error", err)
+	}
+	for {
+		var event NetworkEvent
+		if finished {
+			select {
+			case event = <-events:
+			default:
+				return browserStopped(finishedErr)
 			}
-			if errors.Is(err, context.Canceled) && ctx.Err() == nil {
-				return Media{}, "", wrapError(CategoryResolveFailed, true, "browser session ended unexpectedly", err)
+		} else {
+			select {
+			case <-ctx.Done():
+				cancelSession()
+				wait()
+				return Media{}, "", contextResolveError(ctx.Err())
+			case err := <-done:
+				finished, finishedErr = true, err
+				continue
+			case event = <-events:
 			}
-			var typed *Error
-			if asError(err, &typed) {
-				return Media{}, "", typed
-			}
-			return Media{}, "", browserFailure("navigation or network error", err)
-		case event := <-events:
+		}
+		{
 			if event.Kind == EventRequest && event.RequestID != "" && event.URL != "" {
 				requestURLs[event.RequestID] = event.URL
 			}
@@ -168,7 +194,7 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 				redirects++
 				if redirects > request.MaxRedirects {
 					cancelSession()
-					waitBrowser(done)
+					wait()
 					return Media{}, "", wrapError(CategoryUnsafeRedirect, false, "browser redirect limit exceeded", nil)
 				}
 			}
@@ -182,7 +208,7 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 			}
 			if !withinSourceBoundary && event.ResourceType == "Document" && event.TopLevel {
 				cancelSession()
-				waitBrowser(done)
+				wait()
 				return Media{}, "", wrapError(CategoryUnsafeRedirect, false, "browser navigation crossed its network boundary", boundaryErr)
 			}
 			if event.Kind == EventRequest && rules.matchesNested(event.URL) && !rules.matchesMedia(event.URL) {
@@ -194,7 +220,7 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 						nestedNavigations++
 						if nestedNavigations >= 4 {
 							cancelSession()
-							waitBrowser(done)
+							wait()
 							return Media{}, "", wrapError(CategoryResolveFailed, false, "nested browser navigation limit exceeded", nil)
 						}
 						currentPageURL = event.URL
@@ -205,13 +231,13 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 				}
 				if nestedVisited[event.URL] {
 					cancelSession()
-					waitBrowser(done)
+					wait()
 					return Media{}, "", wrapError(CategoryResolveFailed, false, "nested browser URL loop detected", nil)
 				}
 				nestedNavigations++
 				if nestedNavigations >= 4 {
 					cancelSession()
-					waitBrowser(done)
+					wait()
 					return Media{}, "", wrapError(CategoryResolveFailed, false, "nested browser navigation limit exceeded", nil)
 				}
 				nestedVisited[event.URL] = true
@@ -221,17 +247,17 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 					if err := event.Navigate(ctx, event.URL); err != nil {
 						if ctx.Err() != nil {
 							cancelSession()
-							waitBrowser(done)
+							wait()
 							return Media{}, "", contextResolveError(ctx.Err())
 						}
 						cancelSession()
-						waitBrowser(done)
+						wait()
 						return Media{}, "", browserFailure("nested navigation failed", err)
 					}
 					continue
 				}
 				cancelSession()
-				waitBrowser(done)
+				wait()
 				return Media{}, event.URL, nil
 			}
 			mediaURL, matched := rules.mediaURL(event.URL)
@@ -253,7 +279,7 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 			}
 			if _, _, err := mediaPolicy.validateURL(ctx, mediaURL); err != nil {
 				cancelSession()
-				waitBrowser(done)
+				wait()
 				return Media{}, "", wrapError(CategoryUnsafeRedirect, false, "matched media URL crossed its network boundary", err)
 			}
 			actualTransport := detectTransport(transport, mediaURL, event.MIMEType)
@@ -275,7 +301,7 @@ func (runtime *Runtime) browseOnce(ctx context.Context, request BrowseRequest, r
 			headers = playbackHeaders(headers, request.CookiePolicy)
 			media := Media{URL: mediaURL, Transport: actualTransport, Headers: headers, MIMEType: event.MIMEType, Status: event.Status, Duration: time.Since(started)}
 			cancelSession()
-			waitBrowser(done)
+			wait()
 			return media, "", nil
 		}
 	}
