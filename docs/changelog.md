@@ -4,6 +4,34 @@
 
 ## [Unreleased] - 2026-09-09
 
+### 2026-09-12：内置 Anime Garden BT 来源、只要 BT 的快路径
+
+- 新增 `sources/bt/garden.yaml`（Anime Garden 开放 JSON 接口，AGPL-3.0 项目），默认启用。这是仓库第一条真实 BT 来源：用户装上插件就能在 Nagare 的磁力选集里看到资源，不必再自己找规则仓库。接口返回的磁力不带 tracker，由 Nagare 侧内置的公共 tracker 组补齐。
+- `parse_episode` 新增 `S02E05` 写法（Nix-Raws 等 WEB-DL 组），此前这类条目全部因解不出集号被 `require_episode` 丢掉（实测 39 条丢 21 条）。
+- garden 规则不再复核作品名子串：接口本身已按关键词筛过，返回里大量是繁体写法（幼女戰記），用简体关键词复核会整批丢掉（实测 80 条丢 41 条）。
+- BT 来源对请求里的每个标题都搜并按 infohash 合并，不再取到第一个有结果的标题就停：「幼女战记 第二季」和「幼女戦記Ⅱ」命中的是不同字幕组（实测 3 → 9 条候选）。
+- Plugin API 请求新增 `preferences.transports` 允许列表：只要 `["torrent"]` 时 web 来源根本不启动，Nagare 的磁力选集靠它 1–7 秒拿到 BT 候选，不用陪整队浏览器嗅探等 90 秒。
+- `serve` 支持 `NAGARE_SOURCE_DEBUG=1` 打开浏览器解析日志（已脱敏：无 query、无凭据），排查站点问题用。
+- 健康报告重新生成（example 来源已禁用，garden 以合成 fixture 判定 healthy）。
+- 新增 `nagare-source bundle --profile bt`：生成只含 BT 规则的运行时根目录（schema + `sources/bt/` + 对应 fixture + 空批准表 + 为该子集重生成的健康报告，并做完整校验）。`scripts/release/package.sh` 据此打出五平台引擎归档 `nagare-source-<版本>_<OS>_<arch>.{tar.gz,zip}`（含 `repo/`、LICENSE）与 `checksums.txt`；release 工作流一并上传，CI 每次验证打包。这是 Nagare 安装包捆绑插件的输入：**安装包只捆引擎与 BT 规则，在线规则仍由用户主动给仓库地址。**
+
+### 2026-09-10：搜索规则、站点迁移与示例源
+
+- 修复 Kazumi 旧规则以 `//` 表示整页单线路时的导入兼容性，规范化为 XPath `.`，同时更新 aafun 快照。真实响应验证可提取《幼女战记 第二季》10 集及第 5 集，之前在集数提取阶段报 `search_failed`。
+- 搜索增加明确中文末尾季数的数字写法（如“幼女战记 第二季”→“幼女战记2”），仅允许基础标题与数字完全一致的作品匹配，保留年份与季数校验。MX动漫实测能返回该续作及集数；回归覆盖第一季、其他季数、剧场版、相似标题和年份冲突的拒绝。
+- 白猫旧域名 `www.baimaodm.com` 实测 301 至 `www.bmmdmm.com`，新站搜索与集数结构可用；更新入口及各阶段明确允许域名，并添加绑定上游摘要的 overlay，避免下次同步丢失补丁。未扩大任意跨域重定向权限。
+- 默认禁用 `example-http`、`example-rss` 占位来源，生产找源不再访问 `.invalid` 域名。显式指定 `crawl-bt --response-file` 的离线测试仍可验证禁用模板，联网抓取与插件继续尊重禁用设置。
+- DM84 本轮实际返回 HTTP 522 或连接超时，属于上游不可达；搜索成功不等同于浏览器媒体解析和整集播放通过。
+- 安装修复后的插件并重新加载，Nagare 实际接口约 24 秒返回 7sefun 第 5 集 HTTP 候选。随后逐站复测：aafun 出现 EOF/连接重置，MX动漫出现 TLS 证书校验失败，白猫媒体请求失败并解析超时；这些网络与播放阶段问题尚未解决，未绕过证书验证或扩大网络权限。
+
+### 2026-09-10：标题搜索空格与浏览器来源排队
+
+搜索中日韩标题时优先尝试去掉相邻中日韩字符之间排版空格的写法，保留原文后备、英语词间空格、去重及来源显式搜索次数限制；作品与季数匹配仍使用原始标题校验。实测“幼女战记 第二季”在来源返回零结果，而“幼女战记第二季”可命中第二季，修复此前只规范化结果却未规范化搜索关键词的问题。
+
+Plugin API 将 browser_sniff 来源按 tier 与稳定 ID 排队，同时最多运行两个浏览器来源，槽位跨请求共享；排队发生在 Runner 创建来源 deadline 之前，取消请求会丢弃尚未执行的工作。直接在线与 BT 来源继续并发。此前全部来源共享起始时刻，后排来源可能尚未取得 WebView 就耗尽 15 秒预算。
+
+真实 Nagare 全来源查询约 14.5 秒返回《幼女战记 第二季》第 5 集，HTTP Range 验证为 206 video/mp4；通过 Nagare 播放 API 启动 mpv，读取时长 1537.045 秒且进度连续前进超过 17 秒。此结果验证该集起播，不代表所有来源可用或整集播放已验收；当前该在线资源的弹幕文件指纹匹配失败。86 条来源中仅 14 条启用，其中两个 example 来源为示例，不能当作真实可用资源或 BT 回退保障。
+
 ### 原生 WebView 解析实验与续作匹配修复
 
 新增 macOS WKWebView helper 与 Go Browser 适配器，使用独立非持久化会话、跨 iframe 媒体探测、最多两个同时解析的会话，以及经安全代理执行的有界 Range 可读性验证。只有显式设置 `NAGARE_SOURCE_NATIVE_WEBVIEW=1` 才启用；构建入口为 `make native-helper`。macOS 14.5 上 HTTPS 已观测到 CONNECT 代理请求，普通 HTTP 页面未可靠经过该配置，因此实验通道拒绝 HTTP 入口，并在页面加载前安装 HTTP/WebSocket 等网络请求阻断规则。正式默认仍为 Chrome。

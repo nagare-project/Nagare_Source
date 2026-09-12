@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"github.com/nagare-project/Nagare_Source/internal/btcrawler"
 	"github.com/nagare-project/Nagare_Source/internal/btindex"
@@ -121,11 +120,11 @@ func (runner *SpecRunner) btCandidates(ctx context.Context, request ResolveReque
 			}
 			continue
 		}
+		// 每个标题都搜、按 infohash 合并：索引站按关键词精确匹配，「幼女战记 第二季」与
+		// 「幼女戦記Ⅱ」命中的是不同字幕组的发布，只取第一个有结果的标题会漏掉一半。
+		// 请求里的标题都带季数信息，合并不会把别季的资源混进来。
 		for _, record := range result.Records {
 			records[record.SourceID+":"+record.InfoHash] = record
-		}
-		if len(records) > 0 {
-			break
 		}
 	}
 	if len(records) == 0 {
@@ -596,6 +595,14 @@ func chooseSubject(rows []map[string]string, subject Subject) (map[string]string
 			}
 		}
 	}
+	// 将明确的“第二季”与完全相同基础标题的“2”视为等价。
+	// 仅追加精确别名，不能使用该别名进行子串匹配。
+	numberedAliases := map[string]int{}
+	for _, title := range subject.Titles {
+		if alias := numberedSeasonTitle(title); alias != "" {
+			numberedAliases[compactTitle(alias)] = titleSeason(title)
+		}
+	}
 	var best map[string]string
 	bestScore := 0.0
 	basis := []string{"title_episode"}
@@ -611,6 +618,16 @@ func chooseSubject(rows []map[string]string, subject Subject) (map[string]string
 			continue
 		}
 		candidateSeason := titleSeason(candidateTitle)
+		// 未标季数的正篇不能因标题包含关系匹配到明确的后续季。
+		if wantedSeason <= 1 && (candidateSeason > 1 || isNumberedSequel(candidateTitle, subject.Titles)) {
+			continue
+		}
+		if season, ok := numberedAliases[normalized]; ok && season == wantedSeason {
+			candidateSeason = season
+			if bestScore < 1 {
+				best, bestScore, basis = row, 1, []string{"title_episode"}
+			}
+		}
 		if wantedSeason > 0 && candidateSeason > 0 && candidateSeason != wantedSeason {
 			continue
 		}
@@ -710,40 +727,6 @@ func ordinalNumber(value string) int {
 		return tens*10 + ones
 	}
 	return 0
-}
-
-func searchTitles(source map[string]any, titles []string) []string {
-	matching := object(source["matching"])
-	limit := integer(matching["search_title_limit"], len(titles))
-	if limit < 1 || limit > len(titles) {
-		limit = len(titles)
-	}
-	result := make([]string, 0, limit)
-	seen := map[string]bool{}
-	for _, title := range titles {
-		title = strings.TrimSpace(title)
-		if boolean(matching["search_remove_special"], false) {
-			title = strings.Map(func(character rune) rune {
-				if unicode.IsLetter(character) || unicode.IsNumber(character) || unicode.IsSpace(character) {
-					return character
-				}
-				return -1
-			}, title)
-		}
-		if boolean(matching["search_first_word_only"], false) {
-			if words := strings.Fields(title); len(words) > 0 {
-				title = words[0]
-			}
-		}
-		if title != "" && !seen[title] {
-			seen[title] = true
-			result = append(result, title)
-			if len(result) == limit {
-				break
-			}
-		}
-	}
-	return result
 }
 
 func requestedEpisode(request ResolveRequest) float64 {

@@ -21,7 +21,7 @@ go run ./cmd/nagare-source serve \
 
 Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验字段与显式回环 URL，再请求 manifest 协商 Plugin API v1。插件的运行诊断应写 stderr，并自行脱敏；Nagare 不把子进程 stderr 复制到普通日志。禁用插件、重新配置或退出 Nagare 时，宿主会取消请求并终止子进程。需要指定浏览器时使用 `--chrome PATH`。
 
-可用 `make selftest-plugin` 执行离线运行时/API 回归。仓库示例域名为 `example.invalid`，因此普通启动只用于协议开发；`example-rss` 的 fixture selfcheck 不访问网络。
+可用 `make selftest-plugin` 执行离线运行时/API 回归。`example-http` 与 `example-rss` 使用占位域名，默认禁用，不参与生产找源；插件 selfcheck 对禁用来源返回 `disabled`。需要校验 BT 示例时，可显式使用 `crawl-bt --response-file` 运行离线 fixture。普通启动读取仓库中已启用的真实来源。
 
 ## 1. 通用规则
 
@@ -83,7 +83,7 @@ Content-Type: application/x-ndjson
 Cache-Control: no-store
 ```
 
-所有启用来源并发启动。每行是一个完整 JSON 事件，以换行结束：
+所有启用来源并发启动；请求带 `preferences.transports`（允许列表，如 `["torrent"]`）时只启动能产出这些 transport 的来源，客户端用它做「只要 BT」的快路径，不必等整队浏览器嗅探超时。每行是一个完整 JSON 事件，以换行结束：
 
 进程端先把请求交给统一 Source Spec 运行时：WEB 来源执行搜索、条目匹配、选集、线路与 direct/browser resolve；BT 来源复用同一安全抓取器并转换为 torrent Candidate。CSS、XPath、受限 JSONPath、正则、模板和无副作用 transform 都在声明式运行时执行。每个来源的并发数、请求频率、总 deadline、响应大小、跳转和 `allowed_hosts` 独立生效。
 

@@ -34,6 +34,17 @@ func TestImportKazumiXPathConvertsSearchAndEpisodes(t *testing.T) {
 	assertValidSource(t, source)
 }
 
+func TestKazumiSingleRoadRootSentinel(t *testing.T) {
+	stage, _, diagnostics := kazumiEpisodes(map[string]any{"chapterRoads": "//", "chapterResult": "//a"}, "xpath", "https://example.org/", "example.org")
+	if len(diagnostics) != 0 {
+		t.Fatal(diagnostics)
+	}
+	items := objectValue(objectValue(stage["lines"])["items"])
+	if items["expression"] != "." {
+		t.Fatalf("invalid root selector: %v", items)
+	}
+}
+
 func TestImportKazumiAPIConvertsBodyVariablesAndEpisodePage(t *testing.T) {
 	result := ImportKazumi([]byte(`{
 		"api":"8", "type":"anime", "name":"API Rule", "version":"2.1",

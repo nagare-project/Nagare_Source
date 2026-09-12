@@ -1,0 +1,74 @@
+{
+ "status": "OK",
+ "resources": [
+  {
+   "id": 1,
+   "provider": "example",
+   "providerId": "1001",
+   "title": "[示例字幕组] 葬送的芙莉莲 / Sousou no Frieren - 01 [WebRip 1080p HEVC AAC][简繁内封]",
+   "href": "https://example.invalid/topics/1",
+   "type": "动画",
+   "magnet": "magnet:?xt=urn:btih:0000000000000000000000001234567890abcdef",
+   "size": 734003201,
+   "createdAt": "2026-09-01T12:00:00.000Z",
+   "fetchedAt": "2026-09-01T12:05:00.000Z",
+   "fansub": {
+    "id": "1",
+    "name": "示例字幕组"
+   },
+   "publisher": {
+    "id": "p",
+    "name": "示例字幕组"
+   },
+   "subjectId": null
+  },
+  {
+   "id": 2,
+   "provider": "example",
+   "providerId": "1002",
+   "title": "[示例字幕组] 葬送的芙莉莲 / Sousou no Frieren - 02 [WebRip 1080p HEVC AAC][简繁内封]",
+   "href": "https://example.invalid/topics/2",
+   "type": "动画",
+   "magnet": "magnet:?xt=urn:btih:0000000000000000000000002468acf121579bde",
+   "size": 734003202,
+   "createdAt": "2026-09-02T12:00:00.000Z",
+   "fetchedAt": "2026-09-02T12:05:00.000Z",
+   "fansub": {
+    "id": "2",
+    "name": "示例字幕组"
+   },
+   "publisher": {
+    "id": "p",
+    "name": "示例字幕组"
+   },
+   "subjectId": null
+  },
+  {
+   "id": 3,
+   "provider": "example",
+   "providerId": "1003",
+   "title": "[Example-Raws] 葬送的芙莉莲 / Sousou no Frieren S01E03 [WEB-DL 1080p AVC AAC]",
+   "href": "https://example.invalid/topics/3",
+   "type": "动画",
+   "magnet": "magnet:?xt=urn:btih:000000000000000000000000369d0369b20369cd",
+   "size": 734003203,
+   "createdAt": "2026-09-03T12:00:00.000Z",
+   "fetchedAt": "2026-09-03T12:05:00.000Z",
+   "fansub": {
+    "id": "3",
+    "name": "Example-Raws"
+   },
+   "publisher": {
+    "id": "p",
+    "name": "Example-Raws"
+   },
+   "subjectId": null
+  }
+ ],
+ "pagination": {
+  "page": 1,
+  "pageSize": 80,
+  "complete": true
+ },
+ "filter": {}
+}

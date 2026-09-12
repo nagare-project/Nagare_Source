@@ -41,20 +41,23 @@ jobs:
           tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner -cf /tmp/nagare-source.tar -C dist .
           gzip -n -c /tmp/nagare-source.tar > "release/nagare-source-$RELEASE_VERSION.tar.gz"
           sha256sum "release/nagare-source-$RELEASE_VERSION.tar.gz" > release/SHA256SUMS
+      # 供播放器安装包捆绑的插件资产：五平台引擎 + 只含 BT 规则的运行时根目录。
+      # 在线规则不进这些归档；它们只在上面的 dist 规则包里，由用户主动给地址取用。
+      - name: Package plugin binaries with the BT-only runtime root
+        run: |
+          CGO_ENABLED=0 ./scripts/release/package.sh "$RELEASE_VERSION" release/plugin
+          cp release/plugin/*.tar.gz release/plugin/*.zip release/
+          (cd release/plugin && cat checksums.txt) >> release/SHA256SUMS
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          assets=(release/nagare-source-*.tar.gz release/nagare-source-*.zip release/SHA256SUMS)
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" \
-              "release/nagare-source-$RELEASE_VERSION.tar.gz" \
-              release/SHA256SUMS \
-              --clobber
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
           else
-            gh release create "$RELEASE_TAG" \
-              "release/nagare-source-$RELEASE_VERSION.tar.gz" \
-              release/SHA256SUMS \
+            gh release create "$RELEASE_TAG" "${assets[@]}" \
               --verify-tag \
               --generate-notes \
               --title "Nagare Source $RELEASE_VERSION"

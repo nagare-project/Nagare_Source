@@ -1,14 +1,14 @@
 {
   "schema": "nagare-source-health/v1",
-  "generatedAt": "2026-08-29T03:54:19Z",
+  "generatedAt": "2026-09-12T10:16:46Z",
   "mode": "fixture",
   "summary": {
-    "total": 86,
+    "total": 87,
     "healthy": 1,
-    "degraded": 13,
+    "degraded": 12,
     "unavailable": 0,
     "interactiveRequired": 0,
-    "disabled": 72
+    "disabled": 74
   },
   "sources": [
     {
@@ -325,10 +325,10 @@
       "kind": "web",
       "tier": 1,
       "version": "1",
-      "status": "degraded",
+      "status": "disabled",
       "durationMs": 0,
-      "category": "search_failed",
-      "message": "source has no offline self-test fixture"
+      "category": "source_disabled",
+      "message": "source is disabled"
     },
     {
       "id": "example-rss",
@@ -336,8 +336,10 @@
       "kind": "bt",
       "tier": 3,
       "version": "1",
-      "status": "healthy",
-      "durationMs": 0
+      "status": "disabled",
+      "durationMs": 0,
+      "category": "source_disabled",
+      "message": "source is disabled"
     },
     {
       "id": "ezdmw",
@@ -393,6 +395,15 @@
       "durationMs": 0,
       "category": "source_disabled",
       "message": "source is disabled"
+    },
+    {
+      "id": "garden",
+      "name": "Anime Garden",
+      "kind": "bt",
+      "tier": 3,
+      "version": "1",
+      "status": "healthy",
+      "durationMs": 1
     },
     {
       "id": "girigirilove",

@@ -3,7 +3,8 @@ id: example-rss
 name: Example RSS releases
 kind: bt
 tier: 3
-enabled: true
+# 仅供规则开发与离线测试，占位域名不能用于播放。
+enabled: false
 
 origin:
   ecosystem: community

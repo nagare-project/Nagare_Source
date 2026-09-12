@@ -30,6 +30,8 @@ jobs:
           --response-file fixtures/responses/example-rss.xml
           --selftest
           --out /tmp/bt-records.jsonl
+      - name: Verify the plugin bundle packages on every platform
+        run: CGO_ENABLED=0 ./scripts/release/package.sh ci /tmp/dist-plugin
       - name: Verify reproducible repository output
         env:
           SOURCE_DATE_EPOCH: "1767323045"

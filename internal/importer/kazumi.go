@@ -421,6 +421,10 @@ func kazumiEpisodes(entry map[string]any, mode, rawBaseURL, baseHost string) (ma
 	if chapterRoads == "" || chapterResult == "" {
 		return nil, nil, []Diagnostic{{Severity: "error", Category: "invalid_source", Path: "chapterRoads", Message: "XPath chapter mode requires chapterRoads and chapterResult"}}
 	}
+	// 单线路旧规则用 // 表示整页；转换为合法的 XPath 上下文节点。
+	if chapterRoads == "//" {
+		chapterRoads = "."
+	}
 	stage := map[string]any{
 		"request":  map[string]any{"method": "GET", "url": "{{subject_url}}", "allowed_hosts": []any{baseHost}},
 		"response": "html",

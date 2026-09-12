@@ -3,7 +3,7 @@ defaults:
     subtitle_languages: []
 enabled: true
 episodes:
-    base_url: https://www.baimaodm.com/
+    base_url: https://www.bmmdmm.com/
     lines:
         episodes:
             fields:
@@ -44,11 +44,11 @@ episodes:
             type: xpath
     request:
         allowed_hosts:
-            - www.baimaodm.com
+            - www.bmmdmm.com
         method: GET
         url: '{{subject_url}}'
     response: html
-homepage: https://www.baimaodm.com/
+homepage: https://www.bmmdmm.com/
 id: baimao
 kind: web
 limits:
@@ -71,7 +71,7 @@ origin:
     version: "1.0"
 resolve:
     allowed_hosts:
-        - www.baimaodm.com
+        - www.bmmdmm.com
     cookie_policy: source
     match:
         include:
@@ -82,7 +82,7 @@ resolve:
     url: '{{play_url}}'
 schema: nagare-source/v1
 search:
-    base_url: https://www.baimaodm.com/
+    base_url: https://www.bmmdmm.com/
     fields:
         subject_key:
             attribute: href
@@ -107,8 +107,8 @@ search:
         type: xpath
     request:
         allowed_hosts:
-            - www.baimaodm.com
+            - www.bmmdmm.com
         method: GET
-        url: https://www.baimaodm.com/s_all?ex=1&kw={{title}}
+        url: https://www.bmmdmm.com/s_all?ex=1&kw={{title}}
     response: html
 tier: 2
