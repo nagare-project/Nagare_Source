@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,6 +58,8 @@ type Diagnostic struct {
 type Result struct {
 	Records     []btindex.Record
 	Diagnostics []Diagnostic
+	// Exhausted 表示这一页上游根本没有条目（不是筛掉了）：翻页可以停了。
+	Exhausted bool
 }
 
 // Crawl performs exactly one Source Spec search request. Pagination and title
@@ -93,6 +96,7 @@ func Crawl(ctx context.Context, source map[string]any, query Query, fetcher Fetc
 	sourceID := stringValue(source["id"])
 	result := Result{Diagnostics: rowDiagnostics}
 	byKey := make(map[string]btindex.Record)
+	result.Exhausted = len(rows) == 0
 	for index, row := range rows {
 		record, err := recordFromRow(source, row)
 		if err != nil {
@@ -298,7 +302,14 @@ func recordFromRow(source map[string]any, row map[string]string) (btindex.Record
 func matchesQuery(source map[string]any, record btindex.Record, query Query) bool {
 	matching := objectValue(source["matching"])
 	if query.Episode > 0 && boolOr(matching["require_episode"], false) {
-		if record.Episode == nil || *record.Episode != query.Episode {
+		if record.Episode == nil {
+			// 合集（[01-25]、01-25全、1~12 Fin…）没有单集号：目标集落在范围内就放行，
+			// 老番往往只剩整季合集还有人做种，播放端会弹选集。
+			low, high, ok := episodeRange(record.Title)
+			if !ok || query.Episode < low || query.Episode > high {
+				return false
+			}
+		} else if *record.Episode != query.Episode {
 			return false
 		}
 	}
@@ -309,6 +320,23 @@ func matchesQuery(source map[string]any, record btindex.Record, query Query) boo
 		}
 	}
 	return true
+}
+
+var episodeRangePattern = regexp.MustCompile(`(?i)(?:^|[\[\s【])(\d{1,3})\s*[-~～]\s*(\d{1,3})\s*(?:全|Fin|END|完)?\s*(?:$|[\]\s】])`)
+
+// episodeRange 从合集标题里解出集号范围；只认「两个 1–3 位数字被 - ~ 连着」这种写法，
+// 且不能是分辨率一类（1080-… 不会出现在方括号里两个数字这种形状）。
+func episodeRange(title string) (low, high float64, ok bool) {
+	match := episodeRangePattern.FindStringSubmatch(title)
+	if match == nil {
+		return 0, 0, false
+	}
+	a, errA := strconv.ParseFloat(match[1], 64)
+	b, errB := strconv.ParseFloat(match[2], 64)
+	if errA != nil || errB != nil || a <= 0 || b < a || b > 999 {
+		return 0, 0, false
+	}
+	return a, b, true
 }
 
 func SelfTestQuery(source map[string]any) (Query, error) {

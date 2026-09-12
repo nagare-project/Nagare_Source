@@ -113,20 +113,31 @@ func (runner *SpecRunner) btCandidates(ctx context.Context, request ResolveReque
 	}
 	records := map[string]btindex.Record{}
 	var lastError error
+	// 老番的整季合集往往不在第一页（索引站按时间倒序，前 80 条都是剧场版和续作）：
+	// 规则声明了 limits.max_pages 且 URL 含 {{page}} 时继续翻，直到翻完或某页为空。
+	maxPages := max(1, integer(object(runner.source["limits"])["max_pages"], 1))
+	if !strings.Contains(text(object(object(runner.source["search"])["request"])["url"]), "{{page}}") {
+		maxPages = 1
+	}
 	for _, title := range titles {
-		result, err := btcrawler.Crawl(ctx, runner.source, btcrawler.Query{Title: title, Episode: episode, Page: 1}, fetcher)
-		if err != nil {
-			lastError = err
-			if ctx.Err() != nil {
-				return contextError(ctx.Err(), "search")
+		for page := 1; page <= maxPages; page++ {
+			result, err := btcrawler.Crawl(ctx, runner.source, btcrawler.Query{Title: title, Episode: episode, Page: page}, fetcher)
+			if err != nil {
+				lastError = err
+				if ctx.Err() != nil {
+					return contextError(ctx.Err(), "search")
+				}
+				break
 			}
-			continue
-		}
-		// 每个标题都搜、按 infohash 合并：索引站按关键词精确匹配，「幼女战记 第二季」与
-		// 「幼女戦記Ⅱ」命中的是不同字幕组的发布，只取第一个有结果的标题会漏掉一半。
-		// 请求里的标题都带季数信息，合并不会把别季的资源混进来。
-		for _, record := range result.Records {
-			records[record.Key()] = record
+			// 每个标题都搜、按 infohash 合并：索引站按关键词精确匹配，「幼女战记 第二季」与
+			// 「幼女戦記Ⅱ」命中的是不同字幕组的发布，只取第一个有结果的标题会漏掉一半。
+			// 请求里的标题都带季数信息，合并不会把别季的资源混进来。
+			for _, record := range result.Records {
+				records[record.Key()] = record
+			}
+			if result.Exhausted {
+				break
+			}
 		}
 	}
 	if len(records) == 0 {

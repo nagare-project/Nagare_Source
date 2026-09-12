@@ -1050,6 +1050,13 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 10
+        },
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 1,
+          "description": "BT 搜索最多翻几页：老番的整季合集往往不在第一页；只有 URL 含 {{page}} 时才会翻"
         }
       }
     },

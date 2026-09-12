@@ -37,7 +37,7 @@ selftest: { ... }
 | `matching` | 标题预处理、别名数量以及条目/集号强制匹配策略。 |
 | `ranking` | 上游的次级排序权重和 seeders 能力，不取代来源 tier。 |
 | `cache` | 来源搜索缓存 TTL；`0` 表示禁用。 |
-| `limits` | 来源级并发、频率、超时、响应大小和跳转限制。 |
+| `limits` | 来源级并发、频率、超时、响应大小和跳转限制；BT 来源可用 `max_pages`（配合 URL 里的 `{{page}}`）多翻几页，老番的整季合集常不在第一页。 |
 | `selftest` | 定时健康检查使用的稳定标题、集号和最低期望。 |
 
 `origin.ecosystem` 只能是 `community`、`animeko`、`kazumi` 或 `nagare-v1`。自动导入器应把上游原始内容的 SHA-256 写入 `origin.digest`，便于判断 overlay 是否已过期。
