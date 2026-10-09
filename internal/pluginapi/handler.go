@@ -36,6 +36,8 @@ type Options struct {
 	Root     string
 	Manifest Manifest
 	Runners  []sourceruntime.Runner
+	// Logf 接收运行诊断（写 stderr）；内容只含来源 id 与计数，不含 URL 或标题。缺省丢弃。
+	Logf func(format string, arguments ...any)
 }
 
 type Handler struct {
@@ -45,6 +47,7 @@ type Handler struct {
 	statuses     map[string]string
 	started      time.Time
 	browserSlots chan struct{}
+	logger       func(format string, arguments ...any)
 }
 
 func New(options Options) (*Handler, error) {
@@ -73,7 +76,7 @@ func New(options Options) (*Handler, error) {
 		manifest.SourceSchemaVersions = []int{1}
 	}
 	if len(manifest.Capabilities) == 0 {
-		manifest.Capabilities = []string{"web", "browser_sniff", "bt", "ndjson"}
+		manifest.Capabilities = []string{"web", "browser_sniff", "bt", "bt_releases", "ndjson"}
 	}
 	runners := append([]sourceruntime.Runner(nil), options.Runners...)
 	sort.Slice(runners, func(i, j int) bool { return runners[i].Source().ID < runners[j].Source().ID })
@@ -85,7 +88,10 @@ func New(options Options) (*Handler, error) {
 			return nil, fmt.Errorf("duplicate plugin source id %q", runner.Source().ID)
 		}
 	}
-	return &Handler{manifest: manifest, runners: runners, validator: validator, statuses: statuses, started: time.Now(), browserSlots: make(chan struct{}, 2)}, nil
+	return &Handler{
+		manifest: manifest, runners: runners, validator: validator, statuses: statuses,
+		started: time.Now(), browserSlots: make(chan struct{}, 2), logger: options.Logf,
+	}, nil
 }
 
 func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -104,6 +110,8 @@ func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		handler.getSources(writer, request)
 	case "/v1/candidates":
 		handler.postCandidates(writer, request)
+	case "/v1/releases":
+		handler.postReleases(writer, request)
 	case "/v1/selfcheck":
 		handler.postSelfCheck(writer, request)
 	case "/v1/health":
@@ -204,6 +212,12 @@ func (handler *Handler) postCandidates(writer http.ResponseWriter, request *http
 		writeAPIError(writer, http.StatusBadRequest, "invalid_request", "episode number must be greater than zero")
 		return
 	}
+	flusher := beginNDJSON(writer)
+	handler.streamCandidates(writer, flusher, request.Context(), resolveRequest, time.Now())
+}
+
+// beginNDJSON 写出流响应头并立即 flush：客户端据此知道请求已通过校验、来源已开始工作。
+func beginNDJSON(writer http.ResponseWriter) http.Flusher {
 	writer.Header().Set("Content-Type", "application/x-ndjson; charset=utf-8")
 	writer.Header().Set("Cache-Control", "no-store")
 	writer.WriteHeader(http.StatusOK)
@@ -211,7 +225,31 @@ func (handler *Handler) postCandidates(writer http.ResponseWriter, request *http
 	if flusher != nil {
 		flusher.Flush()
 	}
-	handler.streamCandidates(writer, flusher, request.Context(), resolveRequest, time.Now())
+	return flusher
+}
+
+// eventWriter 逐行写 NDJSON 事件并 flush；写失败（客户端断开）即取消全部来源工作。
+type eventWriter struct {
+	encoder *json.Encoder
+	flusher http.Flusher
+	cancel  context.CancelFunc
+}
+
+func newEventWriter(writer io.Writer, flusher http.Flusher, cancel context.CancelFunc) *eventWriter {
+	encoder := json.NewEncoder(writer)
+	encoder.SetEscapeHTML(false)
+	return &eventWriter{encoder: encoder, flusher: flusher, cancel: cancel}
+}
+
+func (stream *eventWriter) write(value any) bool {
+	if err := stream.encoder.Encode(value); err != nil {
+		stream.cancel()
+		return false
+	}
+	if stream.flusher != nil {
+		stream.flusher.Flush()
+	}
+	return true
 }
 
 type candidateMessage struct {
@@ -257,18 +295,7 @@ func (handler *Handler) streamCandidates(writer io.Writer, flusher http.Flusher,
 	states := make([]sourceState, len(active))
 	candidateIDs := map[string]bool{}
 	completed := 0
-	encoder := json.NewEncoder(writer)
-	encoder.SetEscapeHTML(false)
-	write := func(value any) bool {
-		if err := encoder.Encode(value); err != nil {
-			cancel()
-			return false
-		}
-		if flusher != nil {
-			flusher.Flush()
-		}
-		return true
-	}
+	write := newEventWriter(writer, flusher, cancel).write
 	for completed < len(active) {
 		select {
 		case <-ctx.Done():
@@ -413,12 +440,17 @@ func (handler *Handler) postSelfCheck(writer http.ResponseWriter, request *http.
 }
 
 func (handler *Handler) decodeResolveRequest(request *http.Request, output *sourceruntime.ResolveRequest) error {
+	return handler.decodeSchemaRequest(request, repository.RequestSchemaName, "resolve-request-v1", output)
+}
+
+// decodeSchemaRequest 先过 JSON Schema 再严格解码（拒绝未知字段）；label 只用于错误文案。
+func (handler *Handler) decodeSchemaRequest(request *http.Request, schemaName, label string, output any) error {
 	value, data, err := decodeJSONValue(request)
 	if err != nil {
 		return err
 	}
-	if err := handler.validator.Validate(repository.RequestSchemaName, value); err != nil {
-		return errors.New("request does not satisfy resolve-request-v1")
+	if err := handler.validator.Validate(schemaName, value); err != nil {
+		return fmt.Errorf("request does not satisfy %s", label)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
@@ -468,7 +500,13 @@ func decodeJSONValue(request *http.Request) (any, []byte, error) {
 }
 
 func sourceErrorEvent(sourceID string, err error) map[string]any {
-	category, message, retryable := "resolve_failed", "source runtime failed", true
+	category, message, retryable := classifyError(err)
+	return map[string]any{"event": "source_error", "sourceId": sourceID, "category": category, "message": message, "retryable": retryable}
+}
+
+// classifyError 把来源错误映射到固定分类；未分类的错误按可重试的 resolve_failed 报告。
+func classifyError(err error) (category, message string, retryable bool) {
+	category, message, retryable = "resolve_failed", "source runtime failed", true
 	var typed *sourceruntime.Error
 	if errors.As(err, &typed) {
 		category, message, retryable = typed.Category, typed.Message, typed.Retryable
@@ -478,7 +516,7 @@ func sourceErrorEvent(sourceID string, err error) map[string]any {
 	if strings.TrimSpace(message) == "" {
 		message = "source runtime failed"
 	}
-	return map[string]any{"event": "source_error", "sourceId": sourceID, "category": category, "message": message, "retryable": retryable}
+	return category, message, retryable
 }
 
 func requestedEpisode(request sourceruntime.ResolveRequest) float64 {

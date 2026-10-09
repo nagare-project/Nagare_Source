@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nagare-project/Nagare_Source/main/schema/release-v1.schema.json",
+  "title": "Nagare BT release v1",
+  "description": "/v1/releases 流里 release 事件携带的一条 BT 发布：来源上的原始标题与 torrent 指针，不含任何媒体字节地址。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sourceId",
+    "title",
+    "transport"
+  ],
+  "properties": {
+    "id": {
+      "description": "与 BT Candidate 相同的 id 规则：<sourceId>:<infohash> 或只有种子地址时的 <sourceId>:url:<地址摘要>。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}:(?:[a-f0-9]{40}|url:[a-f0-9]{16})$"
+    },
+    "sourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "title": {
+      "description": "来源上的原始发布标题；超过 512 个字符时在字符边界截断。",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "torrent"
+        },
+        "magnet": {
+          "type": "string",
+          "pattern": "^magnet:\\?"
+        },
+        "infoHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "torrentUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "magnet"
+          ]
+        },
+        {
+          "required": [
+            "infoHash"
+          ]
+        },
+        {
+          "required": [
+            "torrentUrl"
+          ]
+        }
+      ]
+    },
+    "fansub": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "seeders": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "episode": {
+      "description": "从标题解析出的单集号（十进制字符串）；合集或解不出时缺席。",
+      "type": "string",
+      "pattern": "^[0-9]+(?:\\.[0-9]+)?$"
+    }
+  }
+}

@@ -26,7 +26,7 @@ Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验�
 ## 1. 通用规则
 
 - 基础路径为 `/v1`，请求和普通响应使用 UTF-8 JSON。
-- `POST /v1/candidates` 使用 `application/x-ndjson` 流式返回。
+- `POST /v1/candidates` 与 `POST /v1/releases` 使用 `application/x-ndjson` 流式返回。
 - POST 请求要求 `Content-Type: application/json`，请求体上限为 1 MiB，开始流之前拒绝未知字段和非法集号。
 - 未识别字段按对应 JSON Schema 的 `additionalProperties` 规则处理；请求 v1 默认拒绝未知字段。
 - 每个请求可携带 `X-Request-ID`；插件应原样返回，日志也使用该 ID 关联，不能记录用户令牌。
@@ -44,11 +44,11 @@ Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验�
   "version": "0.1.0",
   "protocolVersions": [1],
   "sourceSchemaVersions": [1],
-  "capabilities": ["web", "browser_sniff", "bt", "ndjson"]
+  "capabilities": ["web", "browser_sniff", "bt", "bt_releases", "ndjson"]
 }
 ```
 
-客户端取自身与插件 `protocolVersions` 的最高交集。没有交集时停止调用并显示 `unsupported_protocol`。v1 新增可选字段不提升主版本；删除字段、修改既有语义或默认行为必须发布新的协议主版本。
+`bt_releases` 表示插件提供 `POST /v1/releases`（整部作品 BT 搜索，见第 5 节）；没有这个能力的旧插件只能逐集调用 `/v1/candidates`。客户端取自身与插件 `protocolVersions` 的最高交集。没有交集时停止调用并显示 `unsupported_protocol`。v1 新增可选字段不提升主版本；删除字段、修改既有语义或默认行为必须发布新的协议主版本。
 
 ## 3. Sources
 
@@ -132,7 +132,78 @@ Cache-Control: no-store
 
 完整流 fixture 位于 [`fixtures/ndjson/candidates.jsonl`](../fixtures/ndjson/candidates.jsonl)。
 
-## 5. Self-check
+## 5. Releases（整部作品 BT 搜索）
+
+`/v1/candidates` 一次只解一集；BT 选集窗口要的是另一种模型：**按作品标题把所有 BT 来源搜一遍、拿回全部发布，选集交给客户端在本机完成**（与 animego 网站的磁力搜索同一模型）。`/v1/releases` 就是这个入口，两者并存：在线来源和逐集 BT 仍走 `/v1/candidates`，行为不变。manifest 带 `bt_releases` 时才可调用。
+
+### 请求
+
+`POST /v1/releases`，请求体必须通过 [`release-search-request-v1.schema.json`](../schema/release-search-request-v1.schema.json)；协议头、`Content-Type`、1 MiB 上限、单一 JSON 对象、拒绝未知字段等开流前检查与 `/v1/candidates` 相同。
+
+```json
+{
+  "schema": "nagare-release-search/v1",
+  "subject": {
+    "ids": {"anilist": "188525"},
+    "titles": ["描绘直至生命尽头", "Kore Kaite Shine", "これ描いて死ね", "Draw This, Then Die!"]
+  }
+}
+```
+
+- `subject.titles` 必填，1–4 个非空字符串。服务端去首尾空白、丢空串、按大小写不敏感去重（保留第一次出现的写法），最多 4 个；什么都不剩时返回 HTTP `400 invalid_request`。
+- 标题**原样**作为搜索关键词，不做 `/v1/candidates` 那种紧凑写法 / 数字季的变体扩展。
+- `subject.ids` 可选（键名规则同 resolve 请求），只用于关联与诊断，不参与搜索。
+
+### 行为
+
+- 所有已启用的 `kind: bt` 来源并发启动，每个来源一个任务。
+- 每个标题一个请求，只取第 1 页（`{{page}}` 恒为 1，与 `limits.max_pages` 无关），集号变量为空；同一来源内的请求仍由 `limits.requests_per_minute` 隔开，并占用来源的 `limits.concurrency` 槽位。
+- **不应用** `matching.require_episode` / `require_subject`：抽取与记录规范化之外不再筛任何条目，没有集号的合集、繁体或别名标题都会返回。
+- 每个来源的 deadline 为 `min(limits.timeout_ms, 8 秒)`，从进入来源算起（含排队等并发槽位的时间）。到点时**保留已经返回的标题的结果**作为部分结果交出，不丢弃。
+- 某个标题的响应里有条目、却一条记录都抽不出来（规则已经对不上站点）时，这个标题按 `search_failed` 失败处理，而不是当成零结果——「零 ≠ 死」。
+- 同一来源内按 sourceId/infoHash（只有种子地址时按地址）去重：做种数已知且更高的优先，否则保留第一次出现的（按标题顺序）。不跨来源去重——同一 infohash 在不同来源各出现一次，由客户端合并。
+- 排序：做种数降序（未知排后）→ 发布时间降序（未知排后）→ 标题升序。
+- 某个来源结束就立即写出它的全部 `release`，紧跟它的 `source_result`，不等其他来源；写入由一个写者串行完成，同一来源的事件不会与别的来源交错。
+- 客户端断开或取消请求时，插件取消全部来源工作。
+
+### 缓存
+
+每个来源在插件进程内存里缓存整部作品搜索结果，键为 `sourceId` + 小写后排序的标题集合（标题顺序、大小写不同的同一请求共用一条）。只缓存**完整成功**的结果（所有标题请求都成功、未撞 deadline）：有发布缓存 1 小时，零结果缓存 5 分钟；规则声明了 `cache.ttl_ms` 时以它为上限，`0` 表示该来源不缓存。失败与部分结果不缓存。每个来源最多 256 条，按最近最少使用淘汰。命中时立即重放并在 `source_result` 里标 `"cached": true`；排队等并发槽位的重复请求拿到槽位时会再查一次缓存。插件重启即清空。
+
+### 事件
+
+```json
+{"event":"release","release":{"id":"garden:<infohash>","sourceId":"garden","title":"[Group] Title - 01 [1080p]","transport":{"type":"torrent","magnet":"magnet:?xt=urn:btih:...","infoHash":"<40 位小写十六进制>","torrentUrl":"https://..."},"fansub":"Group","sizeBytes":123,"seeders":5,"publishedAt":"2026-07-04T12:00:00Z","episode":"1"}}
+{"event":"source_result","sourceId":"garden","state":"ok","count":42,"partial":false,"cached":false,"durationMs":812}
+{"event":"source_result","sourceId":"nyaa","state":"failed","count":0,"category":"search_failed","message":"source request failed","retryable":true,"durationMs":1033}
+{"event":"done","queried":6,"succeeded":5,"failed":1,"durationMs":8012}
+```
+
+`release` 必须通过 [`release-v1.schema.json`](../schema/release-v1.schema.json)：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 与 BT Candidate 相同：`<sourceId>:<infohash>`，只有种子地址时 `<sourceId>:url:<16 位十六进制地址摘要>`。 |
+| `title` | 来源上的原始发布标题，超过 512 个字符时在字符边界截断。 |
+| `transport` | `type` 恒为 `torrent`；`magnet` / `infoHash`（40 位小写十六进制）/ `torrentUrl` 为空时省略，至少有一个。 |
+| `fansub`、`sizeBytes`、`seeders`、`publishedAt` | 来源给了才有；`publishedAt` 为 RFC 3339 UTC。 |
+| `episode` | 从标题解析出的单集号（十进制字符串，如 `"1"`、`"12.5"`）；合集或解不出时省略。 |
+
+不合 Schema 的单条发布被跳过（插件 stderr 记来源 id 与条数），不连坐整个来源；若一个来源的发布全部无效，该来源报 `failed` / `invalid_candidate`。
+
+每个被查询的来源**恰好一条** `source_result`：
+
+| `state` | 含义 | 附带字段 |
+| --- | --- | --- |
+| `ok` | 至少一条发布。`partial: true` 表示撞到 deadline 或有标题请求失败，结果不完整。 | `count`、`partial`、`cached`、`durationMs` |
+| `zero` | 所有请求都成功，但没有任何发布（正常的「没有资源」）。 | `count: 0`、`partial: false`、`cached`、`durationMs` |
+| `failed` | 没有发布，且至少一个请求失败或超时。 | `count: 0`、`category`、`message`、`retryable`、`durationMs` |
+
+`category` 沿用第 4 节的固定分类（`search_failed`、`search_timeout`、`unsafe_redirect`、`cancelled`、`invalid_candidate` 等）。多个标题都失败时报告标题顺序上的第一个失败。
+
+`done` 恰好一次且最后出现：`queried` 为已启用 BT 来源数，`succeeded` 为 `ok` 与 `zero` 的来源数，`failed` 为其余。
+
+## 6. Self-check
 
 `POST /v1/selfcheck`
 
@@ -147,7 +218,7 @@ Cache-Control: no-store
 
 当前 CLI 会自动连接 `fixtures/responses/<sourceId>.xml|rss|json|txt` 中存在的 BT fixture；缺少 fixture 的来源在 fixture 模式返回结构化 degraded 结果，不会退回网络请求。重复或未知 source ID 在执行任何自检前返回 HTTP `400`。
 
-## 6. Health
+## 7. Health
 
 `GET /v1/health` 仅表示插件进程是否可服务，不聚合站点是否全部正常：
 
@@ -162,7 +233,7 @@ Cache-Control: no-store
 
 站点级状态由 `/v1/sources` 和 `/v1/selfcheck` 提供。
 
-## 7. 选择与并发约定
+## 8. 选择与并发约定
 
 插件流只负责尽快交付候选，不决定播放器最终选择。Nagare 同时启动 WEB 与 BT 工作；验证通过的高优先级 WEB 候选可以立即起播，BT 继续运行并进入换源列表。客户端排序至少考虑 tier、channel tier、匹配置信度、滚动成功率、解析延迟、分辨率、字幕偏好，以及 BT 的做种数、发布时间和体积。
 

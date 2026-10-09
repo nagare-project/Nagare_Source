@@ -118,9 +118,10 @@ func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, err
 		Manifest: pluginapi.Manifest{
 			ID: "org.nagare.source.community", Name: "Nagare Community Sources", Version: version,
 			ProtocolVersions: []int{1}, SourceSchemaVersions: []int{1},
-			Capabilities: []string{"web", "browser_sniff", "bt", "ndjson"},
+			Capabilities: []string{"web", "browser_sniff", "bt", "bt_releases", "ndjson"},
 		},
 		Runners: runners,
+		Logf:    log.Printf,
 	})
 }
 

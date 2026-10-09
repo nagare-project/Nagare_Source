@@ -4,6 +4,20 @@
 
 ## [Unreleased] - 2026-09-09
 
+### 2026-10-09：整部作品 BT 搜索 `/v1/releases`
+
+- 新增 `POST /v1/releases`（manifest 能力 `bt_releases`）：按作品标题一次搜遍全部已启用 BT 来源，返回每个来源的全部发布，**不按集号筛**，选集交给客户端在本机完成——与 animego 网站的磁力搜索同一模型。`/v1/candidates` 行为不变，仍服务在线来源与逐集 BT。协议见 [Plugin API v1](plugin-api-v1.md) 第 5 节。
+  - 标题原样搜索（不做变体扩展），每个标题只取第 1 页；不应用 `require_episode` / `require_subject`。
+  - 来源 deadline 为 `min(timeout_ms, 8 秒)`，到点**保留已拿到的部分结果**（`partial: true`），不再像逐集搜索那样整批丢弃。
+  - 来源内按 infohash 去重（做种数高的优先）、按做种数 → 发布时间 → 标题排序；哪个来源先结束先写出它的 `release` 与 `source_result`，最后一条 `done`。
+  - 进程内缓存：完整成功的结果有发布缓存 1 小时、零结果 5 分钟（规则的 `cache.ttl_ms` 为上限，`0` 关闭），失败与部分结果不缓存；命中时 `cached: true`。
+  - 响应里有条目却一条都抽不出来时按 `search_failed` 报告，不伪装成零结果、也不进缓存；单个标题的抓取 goroutine 里的 panic 被兜住，不会带走插件进程。
+  - 新增 `schema/release-search-request-v1.schema.json` 与 `schema/release-v1.schema.json`，每条发布写出前校验，不合格的单条跳过并在 stderr 记数。
+- 规则：garden 只取第 1 页（`max_pages: 1`），字幕组、provider、发布时间、体积改为可缺——接口没给字幕组、标题也没有 `[组名]` 的发布此前整条被丢；mikan 体积可缺；AnimeTosho 默认启用（整部作品搜索会带罗马音与英文标题，它是少数给做种数的来源）。健康报告随之重新生成。
+- garden 的 `size` **实测是字节**（2026-10-09 抽样 220 条，全是 1024 的整数倍，单集 WebRip 5–6 亿），保留 `parse_size unit: B`；此前「garden 体积是 KB」的判断不成立。界面上「0 KB」一类的体积来自 dmhy：它的 RSS `enclosure@length` 恒为 `1`。
+- `parse_episode` 接受修订版写法：`[01v2]` → 1、` - 05v3` → 5；`[1080p]`、`[01-12]` 仍不算单集。
+- 实测（本机，《描绘直至生命尽头》四个标题）：dmhy 70 / garden 113 / nyaa 103 / mikan 111 条，跨来源 210 个不同 infohash，其中 7 条没有单集号（合集、OP/ED 音源）；四个成功来源各自 1.8–3.2 秒写出。acg.rip 约 5 秒后连接失败报 `search_failed`；AnimeTosho 有时挂起到 8 秒报 `search_timeout`、有时约 6 秒后连接失败报 `search_failed`，都不影响其他来源。整次 6–8 秒由失败的来源决定（客户端边读边显示，不必等 `done`）；第二次请求四个成功来源全部命中缓存、0 毫秒写出。
+
 ### 2026-09-13：候选带原始发布标题、BT 翻页
 
 - BT 候选的 `metadata.title` 带上来源的原始发布标题。

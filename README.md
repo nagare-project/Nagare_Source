@@ -49,7 +49,7 @@ go run ./cmd/nagare-source build \
   --bt-records /tmp/nagare-bt-records.jsonl
 ```
 
-`serve` 先校验仓库中的全部 Source Spec，再在显式回环 IP 上提供 Plugin API v1。可用 `GET /v1/manifest`、`GET /v1/sources`、`POST /v1/candidates`、`POST /v1/selfcheck` 和 `GET /v1/health`；`POST /v1/candidates` 会并发执行所有启用来源并逐行发送 NDJSON Candidate。离线插件链路可用 `make selftest-plugin` 验证。
+`serve` 先校验仓库中的全部 Source Spec，再在显式回环 IP 上提供 Plugin API v1。可用 `GET /v1/manifest`、`GET /v1/sources`、`POST /v1/candidates`、`POST /v1/releases`、`POST /v1/selfcheck` 和 `GET /v1/health`；`POST /v1/candidates` 会并发执行所有启用来源并逐行发送 NDJSON Candidate，`POST /v1/releases` 按作品标题一次搜遍全部 BT 来源、返回不按集号筛的全部发布（选集由客户端完成）。离线插件链路可用 `make selftest-plugin` 验证。
 
 `health` 在 fixture 模式执行离线自检；`--mode network` 才会访问规则声明的上游。两种模式都生成符合 Source Health v1 的 JSON 和经过转义的静态 HTML。`build` 生成被 Git 忽略的 `dist/index.json`、规范化 JSON 来源、`dist/bt-index.sqlite.zst`、`dist/health.json` 和获准上游的 `dist/licenses/` notice。默认时间戳取 `SOURCE_DATE_EPOCH`，未设置时取当前 Git commit 时间，因此固定输入可以得到逐字节一致的发布产物。省略 `--bt-records` 时仍生成合法的空 BT 索引。
 

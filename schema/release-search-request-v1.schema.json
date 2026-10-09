@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nagare-project/Nagare_Source/main/schema/release-search-request-v1.schema.json",
+  "title": "Nagare release search request v1",
+  "description": "POST /v1/releases 的请求体：按作品标题搜全部已启用 BT 来源的发布，不带集号；选集由客户端在本机完成。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject"
+  ],
+  "properties": {
+    "schema": {
+      "const": "nagare-release-search/v1"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "titles"
+      ],
+      "properties": {
+        "ids": {
+          "description": "可选的作品标识，仅供关联与诊断，不参与搜索。",
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "titles": {
+          "description": "原样作为搜索关键词，不做变体扩展；服务端去首尾空白、按大小写不敏感去重。",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
