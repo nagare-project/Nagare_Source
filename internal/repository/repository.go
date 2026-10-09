@@ -35,6 +35,20 @@ const (
 	defaultGeneratedTime = "1970-01-01T00:00:00Z"
 )
 
+// /v1/releases（整部作品 BT 搜索）的请求与单条发布。
+const (
+	ReleaseSearchRequestSchemaName = "release-search-request-v1.schema.json"
+	ReleaseSchemaName              = "release-v1.schema.json"
+)
+
+// SchemaNames 返回校验器加载的全部 Schema 文件名（schema/ 目录下）。
+func SchemaNames() []string {
+	return []string{
+		SourceSchemaName, RequestSchemaName, CandidateSchemaName, IndexSchemaName, HealthSchemaName,
+		ApprovalsSchemaName, ReleaseSearchRequestSchemaName, ReleaseSchemaName,
+	}
+}
+
 var templatePattern = regexp.MustCompile(`\{\{\s*([a-z][a-z0-9_]*)\s*\}\}`)
 var unresolvedTemplatePattern = regexp.MustCompile(`\{\{|\}\}`)
 
@@ -157,7 +171,7 @@ func NewValidator(root string) (*Validator, error) {
 	compiler.Draft = jsonschema.Draft2020
 	compiler.AssertFormat = true
 
-	names := []string{SourceSchemaName, RequestSchemaName, CandidateSchemaName, IndexSchemaName, HealthSchemaName, ApprovalsSchemaName}
+	names := SchemaNames()
 	for _, name := range names {
 		path := filepath.Join(root, "schema", name)
 		data, err := os.ReadFile(path)

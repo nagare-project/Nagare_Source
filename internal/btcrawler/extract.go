@@ -719,21 +719,25 @@ func transformDefinition(definition any) (string, map[string]any, error) {
 	return typeName, object, nil
 }
 
+// episodePatterns 按优先级排列；包级编译一次，整部作品搜索一次要解几百个标题。
+var episodePatterns = []*regexp.Regexp{
+	// S02E05 / s2e5：Nix-Raws 等 WEB-DL 组的写法，E 前面紧挨着季号数字，
+	// 下面那条「E 前必须是非字母数字」的规则接不住它。
+	regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])S[0-9]{1,2}E([0-9]{1,4}(?:\.[0-9]+)?)`),
+	regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])EP?\s*([0-9]{1,4}(?:\.[0-9]+)?)`),
+	regexp.MustCompile(`第\s*([0-9]{1,4}(?:\.[0-9]+)?)\s*[话話集]`),
+	// 「 - 05v3」：这条不要求数字后面是边界，修订版后缀天然被忽略。
+	regexp.MustCompile(`\s-\s*([0-9]{1,4}(?:\.[0-9]+)?)`),
+	// 「[05]」「[01v2]」：方括号里只能是集号加可选修订版号，[1080p]、[01-12] 都不算单集。
+	regexp.MustCompile(`\[\s*([0-9]{1,4}(?:\.[0-9]+)?)(?:[vV][0-9]{1,2})?\s*\]`),
+}
+
 func parseEpisode(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if number, err := strconv.ParseFloat(trimmed, 64); err == nil && number > 0 {
 		return strconv.FormatFloat(number, 'f', -1, 64), nil
 	}
-	patterns := []*regexp.Regexp{
-		// S02E05 / s2e5：Nix-Raws 等 WEB-DL 组的写法，E 前面紧挨着季号数字，
-		// 下面那条「E 前必须是非字母数字」的规则接不住它。
-		regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])S[0-9]{1,2}E([0-9]{1,4}(?:\.[0-9]+)?)`),
-		regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])EP?\s*([0-9]{1,4}(?:\.[0-9]+)?)`),
-		regexp.MustCompile(`第\s*([0-9]{1,4}(?:\.[0-9]+)?)\s*[话話集]`),
-		regexp.MustCompile(`\s-\s*([0-9]{1,4}(?:\.[0-9]+)?)`),
-		regexp.MustCompile(`\[\s*([0-9]{1,4}(?:\.[0-9]+)?)\s*\]`),
-	}
-	for _, pattern := range patterns {
+	for _, pattern := range episodePatterns {
 		match := pattern.FindStringSubmatch(trimmed)
 		if len(match) > 1 {
 			number, err := strconv.ParseFloat(match[1], 64)

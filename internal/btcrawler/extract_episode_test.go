@@ -23,3 +23,38 @@ func TestParseEpisodeCoversCommonReleaseStyles(t *testing.T) {
 		t.Error("合集标题不该解出集号（1080 不是集号）")
 	}
 }
+
+// 修订版（v2/v3）是字幕组补发时的常见写法：[01v2] 解不出集号，整条就被 require_episode 丢掉。
+func TestParseEpisodeAcceptsVersionSuffix(t *testing.T) {
+	cases := []struct {
+		title string
+		want  string
+	}{
+		{"[绿茶字幕组] 描绘直至生命尽头 / Kore Kaite Shine [01v2][WebRip][1080p][简日内嵌]", "1"},
+		{"[Group] Show [12V3][1080p]", "12"},
+		{"[Group] Show - 05v3 [1080p]", "5"},
+		{"[Group] Show - 05v2", "5"},
+		{"[Group] Show [ 07v2 ]", "7"},
+	}
+	for _, tc := range cases {
+		got, err := parseEpisode(tc.title)
+		if err != nil || got != tc.want {
+			t.Errorf("%q: got %q err=%v, want %q", tc.title, got, err, tc.want)
+		}
+	}
+}
+
+// 分辨率、区间、版本号以外的字母后缀都不能被当成单集号：区间交给 episodeRange 处理。
+func TestParseEpisodeRejectsNonEpisodeBrackets(t *testing.T) {
+	for _, title := range []string{
+		"[Group] Show [1080p]",
+		"[Group] Show [01-12][1080p]",
+		"[Group] Show [01-12v2][1080p]",
+		"[Group] Show [2v2b]",
+		"[Group] Show [720P][HEVC]",
+	} {
+		if got, err := parseEpisode(title); err == nil {
+			t.Errorf("%q must not parse as a single episode, got %q", title, got)
+		}
+	}
+}

@@ -79,6 +79,11 @@ func TestNewPluginHandlerLoadsValidatedRepositorySources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	manifest := httptest.NewRecorder()
+	handler.ServeHTTP(manifest, httptest.NewRequest(http.MethodGet, "/v1/manifest", nil))
+	if manifest.Code != http.StatusOK || !strings.Contains(manifest.Body.String(), `"bt_releases"`) {
+		t.Fatalf("serve manifest must advertise /v1/releases: status=%d body=%s", manifest.Code, manifest.Body.String())
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/sources", nil))
 	if response.Code != http.StatusOK || !containsAll(response.Body.String(), "example-http", "example-rss") {

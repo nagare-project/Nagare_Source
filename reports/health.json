@@ -1,14 +1,14 @@
 {
   "schema": "nagare-source-health/v1",
-  "generatedAt": "2026-09-12T13:34:31Z",
+  "generatedAt": "2026-10-09T11:40:11Z",
   "mode": "fixture",
   "summary": {
     "total": 92,
-    "healthy": 5,
+    "healthy": 6,
     "degraded": 12,
     "unavailable": 0,
     "interactiveRequired": 0,
-    "disabled": 75
+    "disabled": 74
   },
   "sources": [
     {
@@ -843,10 +843,8 @@
       "kind": "bt",
       "tier": 3,
       "version": "1",
-      "status": "disabled",
-      "durationMs": 0,
-      "category": "source_disabled",
-      "message": "source is disabled"
+      "status": "healthy",
+      "durationMs": 0
     },
     {
       "id": "tt776b",

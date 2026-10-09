@@ -74,6 +74,7 @@ search:
                   assume_offset: "+08:00"
         size_bytes:
             expression: ./mikan:torrent/mikan:contentLength/text()
+            required: false
             transforms:
                 - type: parse_size
                   unit: B

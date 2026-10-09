@@ -1,7 +1,8 @@
 defaults:
     subtitle_languages: []
-# 默认关闭：只索引英文/罗马音标题，对中文目录的续作查询命中率很低，且只给做种数不给字幕组规范名。
-enabled: false
+# 只索引英文/罗马音标题、不给字幕组规范名；整部作品搜索（/v1/releases）会带上罗马音与英文标题，
+# 它又是少数给做种数的来源，所以默认启用。中文标题在这里搜不到是正常的零结果。
+enabled: true
 homepage: https://animetosho.org
 id: tosho
 kind: bt

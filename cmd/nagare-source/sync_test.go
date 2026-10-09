@@ -65,10 +65,7 @@ func TestVerifyApprovedCheckoutRequiresCleanDescendantAndUnchangedLicense(t *tes
 
 func TestInstallApprovedSourcesRollsBackInvalidReplacement(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{
-		repository.SourceSchemaName, repository.RequestSchemaName, repository.CandidateSchemaName,
-		repository.IndexSchemaName, repository.HealthSchemaName, repository.ApprovalsSchemaName,
-	} {
+	for _, name := range repository.SchemaNames() {
 		copyTestFile(t, filepath.Join(repositoryRootForCommandTest(t), "schema", name), filepath.Join(root, "schema", name))
 	}
 	output := filepath.Join(root, "sources", "upstreams", "fixture")

@@ -37,7 +37,7 @@ selftest: { ... }
 | `matching` | 标题预处理、别名数量以及条目/集号强制匹配策略。 |
 | `ranking` | 上游的次级排序权重和 seeders 能力，不取代来源 tier。 |
 | `cache` | 来源搜索缓存 TTL；`0` 表示禁用。 |
-| `limits` | 来源级并发、频率、超时、响应大小和跳转限制；BT 来源可用 `max_pages`（配合 URL 里的 `{{page}}`）多翻几页，老番的整季合集常不在第一页。 |
+| `limits` | 来源级并发、频率、超时、响应大小和跳转限制；BT 来源可用 `max_pages`（配合 URL 里的 `{{page}}`）让 `/v1/candidates` 多翻几页。整部作品搜索 `/v1/releases` 不翻页（固定第 1 页），总 deadline 取 `min(timeout_ms, 8 秒)`。 |
 | `selftest` | 定时健康检查使用的稳定标题、集号和最低期望。 |
 
 `origin.ecosystem` 只能是 `community`、`animeko`、`kazumi` 或 `nagare-v1`。自动导入器应把上游原始内容的 SHA-256 写入 `origin.digest`，便于判断 overlay 是否已过期。
@@ -112,7 +112,7 @@ magnet:
 | `trim`、`lowercase`、`uppercase` | 基础字符串规范化。 |
 | `html_decode`、`url_decode` | 解码 HTML entity 或百分号编码。 |
 | `absolute_url` | 相对于产生当前值的响应 URL 解析。 |
-| `parse_episode` | 提取十进制集号；无法确定时返回错误，不得回退为第一集。 |
+| `parse_episode` | 提取十进制集号（`S02E05`、`EP07`、`第03话`、` - 05`、`[05]`；修订版 `[01v2]`、` - 05v3` 取 1、5）；`[1080p]`、`[01-12]` 不算单集。无法确定时返回错误，不得回退为第一集。 |
 | `parse_size`、`parse_datetime` | 规范化为 bytes 或 RFC 3339。`parse_datetime` 接受 RFC 1123/822/3339 与 `2006-01-02 15:04:05 -0700`；不带时区的串按 `assume_offset`（如 `"+08:00"`，Mikan 的 pubDate 是北京时间裸串）解释，缺省当 UTC。 |
 | `parse_fansub` | 从规范发布标题中提取字幕组。 |
 | `magnet` | 从 infohash 创建 magnet，可引用标题字段并附加 tracker。 |

@@ -24,6 +24,9 @@ type Query struct {
 	Title   string
 	Episode float64
 	Page    int
+	// Unfiltered 跳过 matching.require_episode / require_subject：整部作品搜索
+	// （/v1/releases）要的是来源返回的全部发布，选集交给客户端。
+	Unfiltered bool
 }
 
 type Request struct {
@@ -106,7 +109,7 @@ func Crawl(ctx context.Context, source map[string]any, query Query, fetcher Fetc
 			})
 			continue
 		}
-		if !matchesQuery(source, record, query) {
+		if !query.Unfiltered && !matchesQuery(source, record, query) {
 			continue
 		}
 		key := record.Key()
