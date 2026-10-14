@@ -65,15 +65,7 @@ func (HTTPFetcher) Fetch(ctx context.Context, request Request) (Response, error)
 			if err != nil {
 				return nil, err
 			}
-			var lastError error
-			for _, resolved := range addresses {
-				connection, err := dialer.DialContext(ctx, network, net.JoinHostPort(resolved.String(), port))
-				if err == nil {
-					return connection, nil
-				}
-				lastError = err
-			}
-			return nil, lastError
+			return dialFastest(ctx, dialer.DialContext, network, addresses, port, happyEyeballsDelay)
 		},
 	}
 	defer transport.CloseIdleConnections()

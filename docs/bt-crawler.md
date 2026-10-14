@@ -1,6 +1,6 @@
 # BT Source Crawler
 
-`crawl-bt` 执行 Source Spec v1 的 BT Search 阶段，把 RSS/XML 或 JSON 响应转换成 `nagare-bt-record/v1` JSONL。它与索引构建器分离：抓取失败不会触碰已有发布目录，只有通过记录校验的输出才能交给 `build --bt-records`。
+`crawl-bt` 执行 Source Spec v1 的 BT Search 阶段，把 RSS/XML、JSON 或 HTML 网页响应转换成 `nagare-bt-record/v1` JSONL。它与索引构建器分离：抓取失败不会触碰已有发布目录，只有通过记录校验的输出才能交给 `build --bt-records`。
 
 ## 离线自检
 
@@ -36,6 +36,7 @@ go run ./cmd/nagare-source crawl-bt \
 
 - RSS/XML 的受限 XPath：绝对/相对元素路径、首段 `//`、`text()`、属性和显式 namespace。
 - JSON 的受限 JSONPath：属性、数组下标、`[*]` 以及顶层数组 `$`。
+- HTML 的 CSS Selector（`response: html`）：在条目元素的后代里选择，`:scope` 表示条目自身；带 `attribute` 时读属性（名称不分大小写，缺失的元素跳过），否则读元素内全部文本并把空白折叠成单个空格。entity 在解析时已经解码，不需要再加 `html_decode`；`regex` 提取器读条目的规范化文本。用于 RSS 只给最新一页、完整结果只在搜索网页里的站点（如 Mikan）。
 - `field` 依赖、`any` 回退、required/optional 字段和 Source Spec v1 的无副作用 transform。
 - 标题/集号强制匹配、默认分辨率和字幕、infohash/magnet 一致性、稳定去重与结构化诊断。
 
@@ -43,7 +44,7 @@ go run ./cmd/nagare-source crawl-bt \
 
 ## 网络边界
 
-实时抓取器不读取环境代理，避免代理绕过目标检查。每次请求和重定向都必须满足 `allowed_hosts`，每次新连接都会重新解析 DNS；任何回环、私网、链路本地或未指定地址都会终止请求。请求同时执行：
+实时抓取器不读取环境代理，避免代理绕过目标检查。每次请求和重定向都必须满足 `allowed_hosts`，每次新连接都会重新解析 DNS；任何回环、私网、链路本地或未指定地址都会终止请求。通过校验的地址按 Happy Eyeballs 拨号：IPv6/IPv4 交错排列，上一个地址 300ms 内没连上就并发尝试下一个，先连上的胜出，一条坏掉的 IPv6 路由不会耗光整个超时。请求同时执行：
 
 - Source Spec 的总超时、响应头超时和 TLS 握手超时。
 - 请求级或来源级 `max_response_bytes` 与 `max_redirects`。

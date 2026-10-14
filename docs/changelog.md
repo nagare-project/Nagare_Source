@@ -4,6 +4,14 @@
 
 ## [Unreleased] - 2026-09-09
 
+### 2026-10-14：BT 规则支持 HTML 网页，Mikan 改走网页搜索
+
+- BT 运行时支持 `response: html` + CSS Selector 提取（`attribute`、`:scope`、`scope: document`、对条目文本跑 `regex`），HTML 解析时 entity 已解码。CSS 用在非 HTML 响应上直接报错，不静默返回零条。
+- mikan 从 RSS 搜索（`/RSS/Search`，固定只给最新 100 条）改为网页搜索（`/Home/Search`，一次 1000 条）：每行自带完整磁力（站点给的 10 个 tracker），没有时用标题链接末尾的 infohash 拼磁力；体积、更新时间（北京时间 `2026/08/28 05:32`）、`.torrent` 链接都可缺。网页约 4.3 MB（gzip 后约 170 KB），`max_response_bytes` 提到 10 MiB。播放列（第三方云播）不采集。
+- fixture `fixtures/responses/mikan.xml` 换成合成的 `mikan.html`；`serve` 的 fixture 模式与插件测试按 `.html` 查找 fixture。
+- BT 抓取器的拨号改为 Happy Eyeballs：解析出的公网地址按 IPv6/IPv4 交错，上一个地址 300ms 内没连上就并发起下一个、失败立即起下一个，先连上的胜出，晚到的连接会被关掉；公网地址校验不变。此前逐个串行拨号，Go 的解析结果 IPv6 在前，本机到 Cloudflare 的 IPv6 建连约 15 秒，mikan 每次都在 deadline 内连不上（curl、浏览器早已回落到 IPv4，所以手动访问正常）。RSS 版 mikan 同样受影响。
+- 实测（本机，《葬送的芙莉莲》）：RSS 100 条 → 网页 1000 条，1000 个不同 infohash，体积、时间、种子链接全部抽到，74 条是合集或特典、没有单集号。`/v1/releases` 四个标题（中/日/罗马音/英）mikan 去重后 1038–1070 条、约 5 秒；单个 1000 行页面服务端生成要 3–6 秒，站点慢时最后一个标题可能赶不上 8 秒 deadline，按协议返回 `partial: true` 的部分结果（解析本身约 0.2 秒）。
+
 ### 2026-10-09：整部作品 BT 搜索 `/v1/releases`
 
 - 新增 `POST /v1/releases`（manifest 能力 `bt_releases`）：按作品标题一次搜遍全部已启用 BT 来源，返回每个来源的全部发布，**不按集号筛**，选集交给客户端在本机完成——与 animego 网站的磁力搜索同一模型。`/v1/candidates` 行为不变，仍服务在线来源与逐集 BT。协议见 [Plugin API v1](plugin-api-v1.md) 第 5 节。
