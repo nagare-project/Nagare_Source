@@ -4,6 +4,12 @@
 
 ## [Unreleased] - 2026-09-09
 
+### 来源市场与独立安装来源
+
+- 插件新增独立安装目录：`serve --installed-dir DIR`（或环境变量 `NAGARE_SOURCE_INSTALLED_DIR`）。目录下的 `<id>.json|yaml` 逐个独立校验，坏文件只记日志跳过；同 id 覆盖仓库来源；这些来源不读仓库 `health.json` 的状态、也没有 fixture。manifest 新增能力 `installed_sources`。
+- 新增 `POST /v1/sources/inspect`：宿主下载到来源文档后先交给插件按 schema 与 lint 规则校验，返回摘要（含 `allowedHosts`）给用户确认，不写盘。协议见 [Plugin API v1](plugin-api-v1.md) 第 3.1 节。
+- 新增 `nagare-source marketplace` 子命令与 Pages 上的来源市场：已启用来源整合成“BT 磁力”“在线播放”两个来源包（`nagare-source-pack/v1`，`packs/bt.json`、`packs/web.json`），`index.json` 记录 SHA-256，静态页面每个来源包一个“安装”按钮，打开本机 Nagare 的安装确认页，一次确认装上整组来源。说明见 [社区发布](community-publishing.md#来源市场一键安装)。
+
 ### 2026-10-09：整部作品 BT 搜索 `/v1/releases`
 
 - 新增 `POST /v1/releases`（manifest 能力 `bt_releases`）：按作品标题一次搜遍全部已启用 BT 来源，返回每个来源的全部发布，**不按集号筛**，选集交给客户端在本机完成——与 animego 网站的磁力搜索同一模型。`/v1/candidates` 行为不变，仍服务在线来源与逐集 BT。协议见 [Plugin API v1](plugin-api-v1.md) 第 5 节。

@@ -29,6 +29,8 @@ func serve(arguments []string) error {
 	listenAddress := flags.String("listen", "127.0.0.1:7788", "loopback listen address")
 	version := flags.String("version", buildVersion, "plugin version reported by manifest and health")
 	chrome := flags.String("chrome", "", "optional Chrome/Chromium executable path")
+	installedDir := flags.String("installed-dir", os.Getenv(installedSourcesEnv),
+		"optional directory of user-installed source documents (default $"+installedSourcesEnv+")")
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
@@ -39,7 +41,13 @@ func serve(arguments []string) error {
 	if err != nil {
 		return err
 	}
-	handler, err := newPluginHandler(absoluteRoot, *version, *chrome)
+	absoluteInstalled := ""
+	if *installedDir != "" {
+		if absoluteInstalled, err = filepath.Abs(*installedDir); err != nil {
+			return err
+		}
+	}
+	handler, err := newPluginHandler(absoluteRoot, *version, *chrome, absoluteInstalled)
 	if err != nil {
 		return err
 	}
@@ -108,8 +116,16 @@ func writePluginReady(output io.Writer, address string) error {
 // 本地构建保持 dev。--version 显式传入时仍以传入值为准。
 var buildVersion = "dev"
 
-func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, error) {
-	runners, err := loadSourceRunners(root, chromePath)
+// installedSourcesEnv 指向宿主（Nagare）为用户保存“从地址安装”的来源目录。
+// 用环境变量而不是新增必填参数：旧宿主不设置它，插件行为不变。
+const installedSourcesEnv = "NAGARE_SOURCE_INSTALLED_DIR"
+
+// pluginCapabilities 中的 installed_sources 表示插件提供 POST /v1/sources/inspect，
+// 并在启动时加载 installed-dir 中的独立来源。
+var pluginCapabilities = []string{"web", "browser_sniff", "bt", "bt_releases", "ndjson", "installed_sources"}
+
+func newPluginHandler(root, version, chromePath, installedDir string) (*pluginapi.Handler, error) {
+	loaded, err := loadRunners(root, chromePath, installedDir)
 	if err != nil {
 		return nil, err
 	}
@@ -118,21 +134,58 @@ func newPluginHandler(root, version, chromePath string) (*pluginapi.Handler, err
 		Manifest: pluginapi.Manifest{
 			ID: "org.nagare.source.community", Name: "Nagare Community Sources", Version: version,
 			ProtocolVersions: []int{1}, SourceSchemaVersions: []int{1},
-			Capabilities: []string{"web", "browser_sniff", "bt", "bt_releases", "ndjson"},
+			Capabilities: append([]string(nil), pluginCapabilities...),
 		},
-		Runners: runners,
-		Logf:    log.Printf,
+		Runners:   loaded.runners,
+		Installed: loaded.installed,
+		Logf:      log.Printf,
 	})
 }
 
 func loadSourceRunners(root, chromePath string) ([]sourceruntime.Runner, error) {
-	validator, err := repository.NewValidator(root)
+	loaded, err := loadRunners(root, chromePath, "")
 	if err != nil {
 		return nil, err
 	}
+	return loaded.runners, nil
+}
+
+type loadedRunners struct {
+	runners   []sourceruntime.Runner
+	installed map[string]bool
+}
+
+// loadRunners 加载仓库来源，再叠加 installedDir 中用户独立安装的来源。
+// 同 id 时以用户安装的版本为准（这是用户的显式选择）；独立来源不使用仓库 fixture。
+// 坏的独立来源只记日志跳过，仓库来源仍按原规则任何错误即失败。
+func loadRunners(root, chromePath, installedDir string) (loadedRunners, error) {
+	validator, err := repository.NewValidator(root)
+	if err != nil {
+		return loadedRunners{}, err
+	}
 	sources, err := repository.LoadSources(root, validator)
 	if err != nil {
-		return nil, err
+		return loadedRunners{}, err
+	}
+	installed := map[string]bool{}
+	if installedDir != "" {
+		extra, problems := repository.LoadInstalledSources(installedDir, validator)
+		for _, problem := range problems {
+			log.Printf("skip installed source %s", problem.Error())
+		}
+		replaced := map[string]bool{}
+		for _, source := range extra {
+			id, _ := source.Document["id"].(string)
+			installed[id] = true
+			replaced[id] = true
+		}
+		merged := make([]repository.SourceDocument, 0, len(sources)+len(extra))
+		for _, source := range sources {
+			if id, _ := source.Document["id"].(string); !replaced[id] {
+				merged = append(merged, source)
+			}
+		}
+		sources = append(merged, extra...)
 	}
 	var browserBackend webresolver.Browser = webresolver.NewChrome(webresolver.ChromeOptions{ExecutablePath: chromePath})
 	if helperPath := webresolver.FindNativeWebViewHelper(root); os.Getenv("NAGARE_SOURCE_NATIVE_WEBVIEW") == "1" && helperPath != "" {
@@ -145,11 +198,13 @@ func loadSourceRunners(root, chromePath string) ([]sourceruntime.Runner, error) 
 	}
 	runners := make([]sourceruntime.Runner, 0, len(sources))
 	for _, source := range sources {
-		runners = append(runners, sourceruntime.NewSpecRunner(source.Document, sourceruntime.RunnerOptions{
-			Browser: browser, FixtureFetcher: sourceFixtureFetcher(root, source.Document),
-		}))
+		options := sourceruntime.RunnerOptions{Browser: browser}
+		if id, _ := source.Document["id"].(string); !installed[id] {
+			options.FixtureFetcher = sourceFixtureFetcher(root, source.Document)
+		}
+		runners = append(runners, sourceruntime.NewSpecRunner(source.Document, options))
 	}
-	return runners, nil
+	return loadedRunners{runners: runners, installed: installed}, nil
 }
 
 func sourceFixtureFetcher(root string, source map[string]any) btcrawler.Fetcher {

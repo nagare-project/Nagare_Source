@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"net"
 	"net/url"
@@ -22,7 +21,6 @@ import (
 
 	"github.com/nagare-project/Nagare_Source/internal/btindex"
 	"github.com/santhosh-tekuri/jsonschema/v5"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -216,42 +214,15 @@ func (v *Validator) ValidateSource(root, path string, document map[string]any) e
 }
 
 func LoadDocument(path string) (any, error) {
+	format, ok := documentFormat(path)
+	if !ok {
+		return nil, fmt.Errorf("unsupported document extension %q", filepath.Ext(path))
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-
-	var value any
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, &value); err != nil {
-			return nil, fmt.Errorf("decode YAML: %w", err)
-		}
-		// Round-tripping through JSON normalizes YAML values to JSON-compatible data.
-		normalized, err := json.Marshal(value)
-		if err != nil {
-			return nil, fmt.Errorf("normalize YAML: %w", err)
-		}
-		if err := json.Unmarshal(normalized, &value); err != nil {
-			return nil, fmt.Errorf("normalize YAML as JSON: %w", err)
-		}
-	case ".json":
-		decoder := json.NewDecoder(bytes.NewReader(data))
-		decoder.UseNumber()
-		if err := decoder.Decode(&value); err != nil {
-			return nil, fmt.Errorf("decode JSON: %w", err)
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-			if err == nil {
-				return nil, errors.New("decode JSON: multiple root values")
-			}
-			return nil, fmt.Errorf("decode JSON trailing content: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported document extension %q", filepath.Ext(path))
-	}
-	return value, nil
+	return DecodeDocument(data, format)
 }
 
 func ValidateRepository(root string) (ValidationSummary, error) {
