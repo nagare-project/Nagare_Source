@@ -21,6 +21,8 @@ go run ./cmd/nagare-source serve \
 
 Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验字段与显式回环 URL，再请求 manifest 协商 Plugin API v1。插件的运行诊断应写 stderr，并自行脱敏；Nagare 不把子进程 stderr 复制到普通日志。禁用插件、重新配置或退出 Nagare 时，宿主会取消请求并终止子进程。需要指定浏览器时使用 `--chrome PATH`。
 
+`--installed-dir DIR`（默认取环境变量 `NAGARE_SOURCE_INSTALLED_DIR`）指向用户“从地址安装”的独立来源目录，见第 3.1 节。宿主不设置时插件行为不变。
+
 可用 `make selftest-plugin` 执行离线运行时/API 回归。`example-http` 与 `example-rss` 使用占位域名，默认禁用，不参与生产找源；插件 selfcheck 对禁用来源返回 `disabled`。需要校验 BT 示例时，可显式使用 `crawl-bt --response-file` 运行离线 fixture。普通启动读取仓库中已启用的真实来源。
 
 ## 1. 通用规则
@@ -44,11 +46,11 @@ Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验�
   "version": "0.1.0",
   "protocolVersions": [1],
   "sourceSchemaVersions": [1],
-  "capabilities": ["web", "browser_sniff", "bt", "bt_releases", "ndjson"]
+  "capabilities": ["web", "browser_sniff", "bt", "bt_releases", "ndjson", "installed_sources"]
 }
 ```
 
-`bt_releases` 表示插件提供 `POST /v1/releases`（整部作品 BT 搜索，见第 5 节）；没有这个能力的旧插件只能逐集调用 `/v1/candidates`。客户端取自身与插件 `protocolVersions` 的最高交集。没有交集时停止调用并显示 `unsupported_protocol`。v1 新增可选字段不提升主版本；删除字段、修改既有语义或默认行为必须发布新的协议主版本。
+`bt_releases` 表示插件提供 `POST /v1/releases`（整部作品 BT 搜索，见第 5 节），没有这个能力的旧插件只能逐集调用 `/v1/candidates`。`installed_sources` 表示插件提供 `POST /v1/sources/inspect` 并在启动时加载 installed-dir（见第 3.1 节），没有这个能力时宿主不应提供“从地址安装来源”。客户端取自身与插件 `protocolVersions` 的最高交集。没有交集时停止调用并显示 `unsupported_protocol`。v1 新增可选字段不提升主版本；删除字段、修改既有语义或默认行为必须发布新的协议主版本。
 
 ## 3. Sources
 
@@ -72,6 +74,37 @@ Nagare 对 readiness 使用 10 秒超时和 16 KiB 单行上限，严格校验�
 ```
 
 `status` 为 `healthy`、`degraded`、`unavailable`、`interactive_required` 或 `disabled`。状态影响排序和 UI，不得覆盖本次调用产生的明确错误。
+
+### 3.1 独立安装的来源
+
+用户可以从任意 HTTPS 地址安装单个来源文档，或安装一个来源包（`nagare-source-pack/v1`，例如社区来源市场页面的“安装”按钮）。下载、校验哈希、征得用户确认和保存都由宿主完成；来源包由宿主拆开，逐个成员调用下面的 inspect，再把每个成员分别保存成 `<id>.json`，因此插件只看到独立来源文件，只负责校验与加载：
+
+- 启动时读取 installed-dir 下（不递归）的 `<id>.json` / `<id>.yaml` / `<id>.yml`，每个文件不超过 1 MiB，文件名必须等于来源 `id`；隐藏文件和其他扩展名被忽略。
+- 每个文件与仓库来源走同一套 `source-v1` Schema 和安全 lint（公网主机、`allowed_hosts`、禁止提交 Cookie/Authorization 等），只是不要求位于 `sources/<kind>/` 下。
+- 单个文件无效只写 stderr 日志并跳过，不影响其他来源与插件启动。
+- 与仓库来源同 `id` 时以用户安装的版本为准；它不使用仓库 fixture，也不继承 `reports/health.json` 里同 `id` 的状态。
+- `GET /v1/sources` 的响应结构不变。宿主自行记录哪些来源是它安装的。
+
+`POST /v1/sources/inspect` 只读地校验一份文档并返回展示摘要，不写盘、不联网、不改变已加载来源：
+
+```json
+{"format": "yaml", "content": "schema: nagare-source/v1\nid: example\n..."}
+```
+
+`format` 为 `json` 或 `yaml`。成功返回 `200`：
+
+```json
+{
+  "source": {
+    "id": "example", "name": "Example", "kind": "bt", "tier": 3, "version": "1", "enabled": true,
+    "description": "…", "homepage": "https://example.org",
+    "ecosystem": "community", "upstream": "https://example.org", "license": "MIT",
+    "allowedHosts": ["example.org"]
+  }
+}
+```
+
+`description` 与 `homepage` 为空时省略。请求体不合法返回 `400 invalid_request`；文档无法解析或未通过 Schema/lint 返回 `422 invalid_source`，`message` 截断到约 600 字节。
 
 ## 4. Candidates
 

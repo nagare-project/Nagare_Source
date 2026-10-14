@@ -53,6 +53,8 @@ go run ./cmd/nagare-source build \
 
 `health` 在 fixture 模式执行离线自检；`--mode network` 才会访问规则声明的上游。两种模式都生成符合 Source Health v1 的 JSON 和经过转义的静态 HTML。`build` 生成被 Git 忽略的 `dist/index.json`、规范化 JSON 来源、`dist/bt-index.sqlite.zst`、`dist/health.json` 和获准上游的 `dist/licenses/` notice。默认时间戳取 `SOURCE_DATE_EPOCH`，未设置时取当前 Git commit 时间，因此固定输入可以得到逐字节一致的发布产物。省略 `--bt-records` 时仍生成合法的空 BT 索引。
 
+`marketplace --out DIR` 生成来源市场静态站点：把已启用来源整合成“BT 磁力”和“在线播放”两个来源包（`packs/bt.json`、`packs/web.json`），外加带 SHA-256 的 `index.json` 和每个来源包一个“安装”按钮的 `index.html`，由 Pages 工作流发布。“安装”打开本机 Nagare 的确认页，Nagare 下载、校验并经用户确认后，把包内来源逐个存进插件的独立安装目录（`serve --installed-dir`，或环境变量 `NAGARE_SOURCE_INSTALLED_DIR`），同 id 覆盖自带版本。详见 [社区发布](docs/community-publishing.md#来源市场一键安装)。
+
 导入命令支持单文件或递归目录：
 
 ```sh

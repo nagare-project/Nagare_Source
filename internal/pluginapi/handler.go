@@ -36,6 +36,9 @@ type Options struct {
 	Root     string
 	Manifest Manifest
 	Runners  []sourceruntime.Runner
+	// Installed 标记来自用户独立安装目录的来源 id。它们不是仓库健康报告的对象，
+	// 因此不沿用 reports/health.json 里同 id 仓库来源的状态。
+	Installed map[string]bool
 	// Logf 接收运行诊断（写 stderr）；内容只含来源 id 与计数，不含 URL 或标题。缺省丢弃。
 	Logf func(format string, arguments ...any)
 }
@@ -45,6 +48,7 @@ type Handler struct {
 	runners      []sourceruntime.Runner
 	validator    *repository.Validator
 	statuses     map[string]string
+	installed    map[string]bool
 	started      time.Time
 	browserSlots chan struct{}
 	logger       func(format string, arguments ...any)
@@ -88,8 +92,14 @@ func New(options Options) (*Handler, error) {
 			return nil, fmt.Errorf("duplicate plugin source id %q", runner.Source().ID)
 		}
 	}
+	installed := make(map[string]bool, len(options.Installed))
+	for id, value := range options.Installed {
+		if value {
+			installed[id] = true
+		}
+	}
 	return &Handler{
-		manifest: manifest, runners: runners, validator: validator, statuses: statuses,
+		manifest: manifest, runners: runners, validator: validator, statuses: statuses, installed: installed,
 		started: time.Now(), browserSlots: make(chan struct{}, 2), logger: options.Logf,
 	}, nil
 }
@@ -108,6 +118,8 @@ func (handler *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		handler.getManifest(writer, request)
 	case "/v1/sources":
 		handler.getSources(writer, request)
+	case "/v1/sources/inspect":
+		handler.postInspectSource(writer, request)
 	case "/v1/candidates":
 		handler.postCandidates(writer, request)
 	case "/v1/releases":
@@ -152,7 +164,7 @@ func (handler *Handler) getSources(writer http.ResponseWriter, request *http.Req
 	for _, runner := range handler.runners {
 		source := runner.Source()
 		if source.Enabled {
-			if status := handler.statuses[source.ID]; status != "" {
+			if status := handler.statuses[source.ID]; status != "" && !handler.installed[source.ID] {
 				source.Status = status
 			}
 		} else {

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nagare-project/Nagare_Source/internal/repository"
 )
 
 func TestWritePluginReadyIsMachineReadable(t *testing.T) {
@@ -75,7 +77,7 @@ func TestNewPluginHandlerLoadsValidatedRepositorySources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := newPluginHandler(root, "test-version", "")
+	handler, err := newPluginHandler(root, "test-version", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +97,79 @@ func TestNewPluginHandlerLoadsValidatedRepositorySources(t *testing.T) {
 	handler.ServeHTTP(selfCheckResponse, selfCheck)
 	if selfCheckResponse.Code != http.StatusOK || !strings.Contains(selfCheckResponse.Body.String(), `"status":"disabled"`) {
 		t.Fatalf("disabled example must stay disabled in plugin: status=%d body=%s", selfCheckResponse.Code, selfCheckResponse.Body.String())
+	}
+}
+
+func TestNewPluginHandlerOverlaysInstalledSources(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := repository.LoadDocument(filepath.Join(root, "sources", "bt", "example-rss.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := value.(map[string]any)
+	installedDir := t.TempDir()
+	writeSource := func(name string, document map[string]any) {
+		t.Helper()
+		data, err := json.Marshal(document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(installedDir, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 同 id 覆盖仓库来源：用户安装的版本启用并改名。
+	document["enabled"] = true
+	document["name"] = "Installed Override"
+	writeSource("example-rss.json", document)
+	// 全新的 id。
+	document["id"] = "user-added"
+	document["name"] = "User Added"
+	writeSource("user-added.json", document)
+	// 坏文件只被跳过，不影响插件启动。
+	if err := os.WriteFile(filepath.Join(installedDir, "broken.json"), []byte(`{`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	handler, err := newPluginHandler(root, "test-version", "", installedDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := httptest.NewRecorder()
+	handler.ServeHTTP(manifest, httptest.NewRequest(http.MethodGet, "/v1/manifest", nil))
+	if !strings.Contains(manifest.Body.String(), `"installed_sources"`) {
+		t.Fatalf("manifest must advertise installed_sources: %s", manifest.Body.String())
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/sources", nil))
+	var body struct {
+		Sources []struct {
+			ID, Name, Status string
+			Enabled          bool
+		} `json:"sources"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]int{}
+	for _, source := range body.Sources {
+		byID[source.ID]++
+		switch source.ID {
+		case "example-rss":
+			if source.Name != "Installed Override" || !source.Enabled || source.Status != "healthy" {
+				t.Errorf("installed override was not applied: %+v", source)
+			}
+		case "user-added":
+			if source.Name != "User Added" || !source.Enabled {
+				t.Errorf("installed source was not loaded: %+v", source)
+			}
+		}
+	}
+	if byID["example-rss"] != 1 || byID["user-added"] != 1 || byID["example-http"] != 1 {
+		t.Fatalf("unexpected source set: %v", byID)
 	}
 }
 
@@ -217,5 +292,43 @@ func TestImportKazumiDirectoryEndToEnd(t *testing.T) {
 	}
 	if info, err := os.Stat(diagnostics); err != nil || info.Size() == 0 {
 		t.Fatalf("diagnostics were not written: info=%v err=%v", info, err)
+	}
+}
+
+func TestMarketplaceCommandWritesStaticSite(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	healthPath := filepath.Join(directory, "health.json")
+	if err := os.WriteFile(healthPath, []byte(`{"sources":[{"id":"nyaa","status":"healthy"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(directory, "site")
+	if err := marketplaceCommand([]string{"--root", root, "--out", output, "--health", healthPath, "--generated-at", "2026-09-07T00:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	indexData, err := os.ReadFile(filepath.Join(output, "index.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsAll(string(indexData), `"schema": "nagare-source-marketplace/v1"`, `"id": "nyaa"`, `"path": "packs/bt.json"`, `"path": "packs/web.json"`, `"status": "healthy"`) ||
+		strings.Contains(string(indexData), "example-rss") {
+		t.Fatalf("marketplace index is unexpected: %s", indexData)
+	}
+	for _, name := range []string{"bt.json", "web.json"} {
+		if _, err := os.Stat(filepath.Join(output, "packs", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(output, "sources")); !os.IsNotExist(err) {
+		t.Fatalf("marketplace must not publish per-source files: %v", err)
+	}
+	if err := marketplaceCommand([]string{"--root", root, "--out", output}); err == nil {
+		t.Fatal("marketplace must refuse a non-empty output directory")
+	}
+	if err := marketplaceCommand([]string{"--root", root}); err == nil {
+		t.Fatal("marketplace must require --out")
 	}
 }
