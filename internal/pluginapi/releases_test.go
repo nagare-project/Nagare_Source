@@ -425,7 +425,7 @@ func TestReleasesFromBundledBTRulesSatisfySchema(t *testing.T) {
 
 func fixturePath(t *testing.T, root, sourceID string) string {
 	t.Helper()
-	for _, extension := range []string{".xml", ".json"} {
+	for _, extension := range []string{".xml", ".json", ".html"} {
 		path := filepath.Join(root, "fixtures", "responses", sourceID+extension)
 		if _, err := os.Stat(path); err == nil {
 			return path

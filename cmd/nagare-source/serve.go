@@ -157,7 +157,7 @@ func sourceFixtureFetcher(root string, source map[string]any) btcrawler.Fetcher 
 		return nil
 	}
 	sourceID, _ := source["id"].(string)
-	for _, extension := range []string{".xml", ".rss", ".json", ".txt"} {
+	for _, extension := range []string{".xml", ".rss", ".json", ".txt", ".html"} {
 		path := filepath.Join(root, "fixtures", "responses", sourceID+extension)
 		if data, err := os.ReadFile(path); err == nil {
 			return btcrawler.StaticFetcher{Response: btcrawler.Response{Body: data}}

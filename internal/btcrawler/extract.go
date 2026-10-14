@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	nethtml "golang.org/x/net/html"
 )
 
 type parsedDocument struct {
@@ -24,6 +26,7 @@ type parsedDocument struct {
 	raw         string
 	json        any
 	xml         *xmlNode
+	html        *nethtml.Node
 	namespaces  map[string]string
 }
 
@@ -101,6 +104,12 @@ func parseResponse(responseType string, response Response, namespaceDocument map
 			return nil, err
 		}
 		document.xml = root
+	case "html":
+		root, err := parseHTML(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		document.html = root
 	default:
 		return nil, fmt.Errorf("BT response type %q is unsupported", responseType)
 	}
@@ -178,6 +187,16 @@ func selectItems(extractor any, document *parsedDocument) ([]any, error) {
 			result = append(result, node)
 		}
 		return result, nil
+	case "css":
+		nodes, err := selectCSS(document.html, expression)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]any, len(nodes))
+		for index, node := range nodes {
+			result[index] = node
+		}
+		return result, nil
 	default:
 		return nil, fmt.Errorf("items extractor type %q is unsupported", typeName)
 	}
@@ -248,9 +267,12 @@ func evaluateExtractor(definition any, context extractContext, resolve func(stri
 		}
 		scope := context.item
 		if stringValue(object["scope"]) == "document" {
-			if context.document.kind == "json" {
+			switch context.document.kind {
+			case "json":
 				scope = context.document.json
-			} else {
+			case "html":
+				scope = context.document.html
+			default:
 				scope = context.document.xml
 			}
 		}
@@ -286,6 +308,12 @@ func evaluateExtractor(definition any, context extractContext, resolve func(stri
 					values = append(values, typed)
 				}
 			}
+		case "css":
+			selected, err := selectCSS(scope, expression)
+			if err != nil {
+				return nil, err
+			}
+			values = htmlValues(selected, stringValue(object["attribute"]))
 		case "regex":
 			input := contextText(scope, context.document)
 			pattern, err := regexp.Compile(expression)
@@ -339,10 +367,14 @@ func extractorDefinition(definition any, responseType string) (string, string, e
 }
 
 func defaultExtractorType(responseType string) string {
-	if responseType == "json" {
+	switch responseType {
+	case "json":
 		return "jsonpath"
+	case "html":
+		return "css"
+	default:
+		return "xpath"
 	}
-	return "xpath"
 }
 
 func extractorRequired(definition any) bool {
@@ -585,6 +617,8 @@ func contextText(scope any, document *parsedDocument) string {
 	switch typed := scope.(type) {
 	case *xmlNode:
 		return nodeText(typed)
+	case *nethtml.Node:
+		return htmlText(typed)
 	case string:
 		return typed
 	case nil:
